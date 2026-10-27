@@ -1,0 +1,53 @@
+# All tunable knobs live here. Secrets come from environment variables, never this file.
+
+timezone: America/New_York        # "today" for the slate is computed in this zone
+
+history:
+  # Seasons used to train xG and fit game constants. The newest full season is held out for testing.
+  train_seasons: [20212022, 20222023, 20232024, 20242025]
+  test_season: 20252026
+  current_season: 20262027
+
+sim:
+  n_sims: 50000
+  step_seconds: 10                 # time-step size for the regulation simulation
+  seed: 7
+
+ratings:
+  ewm_halflife_games: 20           # recency weighting for team rates
+  prior_games: 12                  # strength of the pull toward league average
+  carryover: 0.6                   # how much of last season's rating carries into a new season
+  goalie_prior_xg: 60.0            # K in w = N / (N + K), N = xG faced, for goalie shrinkage
+  player_prior_toi_min: 300.0      # minutes of prior weight when shrinking player shares
+
+odds:
+  enabled: true
+  regions: us
+  game_markets: [h2h, spreads, totals]
+  # Free plan: keep empty. On a paid plan add e.g. player_shots_on_goal, player_points, player_total_saves
+  prop_markets: []
+  monthly_credit_alert: 400
+
+disagreement:
+  # Minimum |model - book| (probability points) to flag a disagreement
+  thresholds:
+    h2h: 0.03
+    spreads: 0.04
+    totals: 0.04
+    props: 0.05
+  blend_model_weight: 0.3          # only used for the separate "blended" column; never for flags
+
+props:
+  lines:
+    sog: [0.5, 1.5, 2.5, 3.5, 4.5]
+    goals: [0.5, 1.5]
+    assists: [0.5, 1.5]
+    points: [0.5, 1.5, 2.5]
+    ppp: [0.5]
+    blocks: [0.5, 1.5, 2.5]
+    saves: [20.5, 22.5, 24.5, 26.5, 28.5, 30.5, 32.5]
+  telegram_top_n: 15               # props shown in the Telegram message (full list goes in the CSV)
+
+tells:
+  min_games: 600                   # don't report reverse-engineering findings below this sample
+  fdr_alpha: 0.10                  # Benjamini-Hochberg false discovery rate

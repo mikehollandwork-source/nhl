@@ -1,0 +1,26 @@
+name: Save data
+description: Commit anything the job wrote under ./data back to the data branch.
+inputs:
+  message:
+    description: Commit message
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      working-directory: data
+      run: |
+        git config user.name "nhl-model-bot"
+        git config user.email "nhl-model-bot@users.noreply.github.com"
+        git add -A
+        if git diff --cached --quiet; then
+          echo "no data changes"
+          exit 0
+        fi
+        git commit -q -m "${{ inputs.message }}"
+        for i in 1 2 3 4; do
+          git push origin HEAD:data && exit 0
+          sleep $((2 ** i))
+          git pull --rebase -q origin data || true
+        done
+        exit 1

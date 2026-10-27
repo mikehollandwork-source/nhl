@@ -1,0 +1,13 @@
+name: Notify failure
+description: Post a short failure notice with the run link to Telegram.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then exit 0; fi
+        curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+          --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+          --data-urlencode "text=⚠️ NHL job '${GITHUB_WORKFLOW}' failed: ${RUN_URL}" > /dev/null

@@ -1,0 +1,48 @@
+name: bootstrap (rebuild data branch)
+
+# One-time / disaster-recovery job: downloads every season from the NHL API, trains the models
+# and REPLACES the data branch. Normal operation never needs this.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "rebuild" to replace the data branch'
+        required: true
+
+concurrency:
+  group: data-branch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    if: ${{ inputs.confirm == 'rebuild' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      NHL_DATA_DIR: ${{ github.workspace }}/data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+      - name: Backfill all seasons
+        run: python -m nhlmodel.pipelines.backfill --all
+      - name: Train production models
+        run: python -m nhlmodel.pipelines.train --mode production
+      - name: Publish data branch
+        working-directory: data
+        run: |
+          git init -q
+          git checkout -q -b data
+          git config user.name "nhl-model-bot"
+          git config user.email "nhl-model-bot@users.noreply.github.com"
+          git add -A
+          git commit -q -m "bootstrap ${{ github.run_id }}"
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+          git push -f origin data
