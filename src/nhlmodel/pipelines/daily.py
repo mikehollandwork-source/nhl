@@ -9,6 +9,7 @@ Set NHL_DATE=YYYY-MM-DD to run for another date, NHL_DRY_RUN=1 to print instead 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import uuid
 from dataclasses import dataclass
@@ -23,12 +24,12 @@ from nhlmodel.features import players as PL
 from nhlmodel.features import team as T
 from nhlmodel.features.xg import XGModel
 from nhlmodel.ingest import dailyfaceoff as DF
-from nhlmodel.ingest import nhl_api, odds_api
+from nhlmodel.ingest import kalshi, nhl_api, odds_api, polymarket
 from nhlmodel.market.devig import prob_to_american
 from nhlmodel.pipelines import slate_v2
 from nhlmodel.pipelines.backfill import backfill_season
 from nhlmodel.publish import format as F
-from nhlmodel.publish import telegram as TG
+from nhlmodel.publish import notify as PUB
 from nhlmodel.sim import markets as M
 from nhlmodel.sim import props as P
 from nhlmodel.sim.engine import SimResult, simulate
@@ -223,22 +224,24 @@ def projection_rows(runs: list[GameRun], d: date, run_id: str, run_type: str, ve
 
 
 def fetch_and_compare(runs: list[GameRun], d: date, snapshot_type: str, run_id: str, run_type: str,
-                      version: str) -> tuple[pd.DataFrame, str]:
-    """Pull game odds, store the snapshot, and compare with the model. Returns (disagreements, note)."""
+                      version: str) -> tuple[pd.DataFrame, str, pd.DataFrame]:
+    """Pull game odds, store the snapshot, and compare with the model.
+    Returns (disagreements, note, per-book de-vigged prices)."""
+    none = pd.DataFrame()
     if not settings()["odds"]["enabled"]:
-        return pd.DataFrame(), "Odds: disabled in settings"
+        return none, "Odds: disabled in settings", none
     try:
         events, usage = odds_api.fetch_game_odds()
     except odds_api.OddsUnavailable as e:
-        return pd.DataFrame(), f"Odds: unavailable ({e})"
+        return none, f"Odds: unavailable ({e})", none
     except Exception as e:
         log.exception("odds fetch failed")
-        return pd.DataFrame(), f"Odds: fetch failed ({type(e).__name__})"
+        return none, f"Odds: fetch failed ({type(e).__name__})", none
     match = odds_api.team_matcher(team_names())
     odds = odds_api.normalize_game_odds(events, match, snapshot_type)
     slate = {(r.home, r.away): r for r in runs}
     if odds.empty:
-        return pd.DataFrame(), "Odds: no lines posted yet"
+        return none, "Odds: no lines posted yet", none
     ts = datetime.now(UTC).isoformat(timespec="seconds")
     # Only pre-game prices for today's slate: the API also returns live (in-play) odds and other days.
     start = pd.to_datetime(odds.commence_time, utc=True)
@@ -246,14 +249,14 @@ def fetch_and_compare(runs: list[GameRun], d: date, snapshot_type: str, run_id: 
     keep = on_slate & (start > pd.Timestamp(ts)) & (start.dt.tz_convert(tz()).dt.date == d)
     odds = odds[keep]
     if odds.empty:
-        return pd.DataFrame(), "Odds: no pre-game lines for today's games"
+        return none, "Odds: no pre-game lines for today's games", none
     db.append("odds_snapshots", odds.assign(game_date=d.isoformat(), run_id=run_id), d.isoformat())
     db.append("odds_usage", pd.DataFrame([{"ts": ts, "run_id": run_id, **usage}]), d.strftime("%Y-%m"))
 
     fair = DG.per_book_fair(odds)
     cons = DG.consensus(fair)
     if cons.empty:
-        return pd.DataFrame(), "Odds: no complete two-way markets"
+        return none, "Odds: no complete two-way markets", none
     db.append("consensus", cons.assign(ts=ts, snapshot_type=snapshot_type, game_date=d.isoformat()), d.isoformat())
 
     def model_prob(home, away, market, sel, line):
@@ -264,7 +267,7 @@ def fetch_and_compare(runs: list[GameRun], d: date, snapshot_type: str, run_id: 
 
     dis = DG.compare(cons, model_prob)
     if dis.empty:
-        return dis, "Odds: no comparable lines"
+        return dis, "Odds: no comparable lines", fair
     status = {(r.home, r.away): (r.home_goalie_status, r.away_goalie_status) for r in runs}
     dis = dis.assign(run_id=run_id, run_type=run_type, ts=ts, game_date=d.isoformat(), model_version=version,
                      goalie_status=[_combined_status(*status[(h, a)]) for h, a in zip(dis.home, dis.away, strict=True)])
@@ -273,7 +276,7 @@ def fetch_and_compare(runs: list[GameRun], d: date, snapshot_type: str, run_id: 
     note = f"Odds: {cons.event_id.nunique()} games, {fair.book.nunique()} books · credits used this month {used}"
     if used >= settings()["odds"]["monthly_credit_alert"]:
         note += " ⚠️ near free-plan limit"
-    return dis, note
+    return dis, note, fair
 
 
 def _combined_status(h: str, a: str) -> str:
@@ -294,18 +297,123 @@ def team_names() -> pd.DataFrame:
     return _TEAMS
 
 
-def write_csv(runs: list[GameRun], proj: pd.DataFrame, d: date, run_type: str):
+def write_csv(runs: list[GameRun], proj: pd.DataFrame, d: date, run_type: str, dk: pd.DataFrame | None = None,
+              pm: pd.DataFrame | None = None, kl: pd.DataFrame | None = None):
+    """Every projection, plus the DraftKings (no-vig), Polymarket and Kalshi probability where a line exists."""
     path = out_dir() / f"nhl_projections_{d.isoformat()}_{run_type}.csv"
     props = pd.concat([r.props for r in runs if r.props is not None], ignore_index=True) if runs else pd.DataFrame()
     game = proj[proj.market != "summary"][["game_id", "away", "home", "market", "selection", "line",
                                            "model_prob", "fair_odds"]].rename(columns={"model_prob": "p"})
+    game = _attach(game, dk, "fair", "dk_prob")
+    game = _attach(game, pm, "prob", "poly_prob")
     if not props.empty:
         pr = props.rename(columns={"p_over": "p"}).assign(selection="over")
         pr["fair_odds"] = pr["p"].map(lambda p: prob_to_american(p) if 0 < p < 1 else None)
+        if kl is not None and not kl.empty:
+            pr = pr.merge(kl[["player_id", "market", "line", "kalshi_prob"]],
+                          on=["player_id", "market", "line"], how="left")
         cols = ["game_id", "away", "home", "team", "player", "market", "selection", "line", "p", "fair_odds", "mean"]
+        cols += [c for c in ("kalshi_prob",) if c in pr]
         game = pd.concat([game, pr[cols]], ignore_index=True)
     game.to_csv(path, index=False)
     return path, props
+
+
+def _attach(game: pd.DataFrame, lines: pd.DataFrame | None, col: str, name: str) -> pd.DataFrame:
+    if lines is None or lines.empty:
+        return game
+    keys = ["home", "away", "market", "selection", "line"]
+    x = lines[keys + [col]].copy()
+    x["line"] = x.line.astype(float).fillna(0.0).round(2)
+    x = x.groupby(keys, as_index=False)[col].median().rename(columns={col: name})
+    g = game.assign(_line=game.line.astype(float).fillna(0.0).round(2))
+    g = g.merge(x.rename(columns={"line": "_line"}), on=["home", "away", "market", "selection", "_line"], how="left")
+    return g.drop(columns="_line")
+
+
+def posted_path(d: date):
+    return data_dir() / "daily_cache" / f"{d.isoformat()}_posted.json"
+
+
+def posted_games(d: date) -> set[int] | None:
+    """Game ids posted this morning (had a DraftKings line); None if unknown (post everything)."""
+    p = posted_path(d)
+    if not p.exists():
+        return None
+    return set(json.loads(p.read_text()).get("game_ids", []))
+
+
+def poly_lines(runs: list[GameRun], d: date) -> pd.DataFrame:
+    if not settings().get("lines", {}).get("polymarket", True):
+        return pd.DataFrame()
+    try:
+        return polymarket.game_lines(d, [(r.home, r.away) for r in runs], team_names(),
+                                     settings().get("lines", {}).get("max_spread", 0.10))
+    except Exception:
+        log.exception("polymarket fetch failed")
+        return pd.DataFrame()
+
+
+def kalshi_props(props: pd.DataFrame, d: date) -> pd.DataFrame:
+    """Kalshi prop lines merged with the model's probability for the same player / market / line."""
+    if props.empty or not settings().get("lines", {}).get("kalshi", True):
+        return pd.DataFrame()
+    players = props[props.market != "saves"].drop_duplicates("player_id")[["player_id", "player", "team"]]
+    try:
+        kl = kalshi.prop_lines(d, players, settings().get("lines", {}).get("max_spread", 0.10))
+    except Exception:
+        log.exception("kalshi fetch failed")
+        return pd.DataFrame()
+    if kl.empty:
+        return kl
+    m = kl.merge(props[["player_id", "market", "line", "p_over", "mean", "game_id", "home", "away"]],
+                 on=["player_id", "market", "line"], how="inner")
+    return m.rename(columns={"p_over": "model_prob", "prob": "kalshi_prob"}).assign(
+        edge=lambda x: x.model_prob - x.kalshi_prob)
+
+
+def line_rows(r: GameRun, dk: pd.DataFrame, pm: pd.DataFrame) -> list[dict]:
+    """Model vs DraftKings (no-vig) vs Polymarket for the ML, DK's main spread and DK's main total."""
+    th = settings()["disagreement"]["thresholds"]
+    g = dk[(dk.home == r.home) & (dk.away == r.away)]
+    gp = pm[(pm.home == r.home) & (pm.away == r.away)] if not pm.empty else pm
+
+    def poly(market, sel, line):
+        if gp.empty:
+            return None
+        x = gp[(gp.market == market) & (gp.selection == sel)]
+        if line is not None:
+            x = x[np.isclose(x.line.astype(float), line)]
+        return float(x.prob.iloc[0]) if len(x) else None
+
+    out = []
+    for market, (a, b) in DG.PAIRS.items():
+        m = g[g.market == market]
+        if m.empty:
+            continue
+        if market == "h2h":
+            picks = [(a, None), (b, None)]
+        else:
+            ma = m[m.selection == a]
+            if ma.empty:
+                continue
+            ln = float(ma.loc[(ma.fair - 0.5).abs().idxmin(), "line"])     # DK's main line
+            picks = [(a, ln), (b, -ln if market == "spreads" else ln)]
+        for sel, ln in picks:
+            x = m[m.selection == sel]
+            if ln is not None:
+                x = x[np.isclose(x.line.astype(float), ln)]
+            if x.empty:
+                continue
+            x = x.iloc[0]
+            mp = M.market_prob(r.sim, market, sel, ln)
+            name = {"home": r.home, "away": r.away, "over": "Over", "under": "Under"}[sel]
+            label = (f"ML {name}" if market == "h2h" else f"{name} {ln:+g}" if market == "spreads"
+                     else f"{name} {ln:g}")
+            out.append({"label": label, "model": mp, "dk": float(x.fair), "dk_price": float(x.price),
+                        "poly": poly(market, sel, ln), "edge": mp - float(x.fair),
+                        "flag": mp - float(x.fair) >= th.get(market, 0.04)})
+    return out
 
 
 # ----------------------------------------------------------------------------- runs
@@ -320,24 +428,46 @@ def morning(d: date) -> None:
     proj = projection_rows(runs, d, run_id, "morning", gm.version)
     db.append("projections", proj, d.isoformat())
     db.write("slates", _slate_rows(runs, d, "morning", run_id), d.isoformat())
-    dis, note = fetch_and_compare(runs, d, "open", run_id, "morning", gm.version)
+    dis, note, fair = fetch_and_compare(runs, d, "open", run_id, "morning", gm.version)
+    dk = fair[fair.book == "draftkings"] if not fair.empty else fair
+    pm = poly_lines(runs, d)
+    ts = datetime.now(UTC).isoformat(timespec="seconds")
+    if not pm.empty:
+        db.append("poly_lines", pm.assign(ts=ts, run_id=run_id, game_date=d.isoformat()), d.isoformat())
 
-    cards = []
-    for r in sorted(runs, key=lambda r: r.start_utc):
-        bl = []
-        if not dis.empty:
-            sub = dis[(dis.home == r.home) & (dis.away == r.away) & dis.flagged]
-            bl = [F.book_line(x) for x in sub.itertuples()]
-        cards.append(F.game_card({**r.__dict__, "book_lines": bl}))
-    TG.send_message(F.morning_message(d.strftime("%a %b %-d"), gm.version, cards, note))
+    dk_pairs = set(zip(dk.home, dk.away, strict=True)) if not dk.empty else set()
+    posted = [r for r in sorted(runs, key=lambda r: r.start_utc) if (r.home, r.away) in dk_pairs]
+    skipped = [f"{r.away}@{r.home}" for r in runs if (r.home, r.away) not in dk_pairs]
+    posted_path(d).parent.mkdir(parents=True, exist_ok=True)
+    posted_path(d).write_text(json.dumps({"game_ids": [r.game_id for r in posted]}))
+    if posted:
+        cards = [F.game_card({**r.__dict__, "book_lines": [F.lines_block(line_rows(r, dk, pm))]}) for r in posted]
+        if skipped:
+            note += f"\nNot posted (no DraftKings line yet): {', '.join(skipped)}"
+        PUB.send_message(F.morning_message(d.strftime("%a %b %-d"), gm.version, cards, note))
+    else:
+        PUB.send_message(f"🏒 <b>NHL · {d.strftime('%a %b %-d')}</b>\nNo DraftKings lines available, so no game "
+                         f"projections posted.\n{note}")
     if not dis.empty:
-        TG.send_message(F.disagreements_message(dis))
-    csv_path, props = write_csv(runs, proj, d, "morning")
+        posted_pairs = {(r.home, r.away) for r in posted}
+        mine = dis[[(h_, a_) in posted_pairs for h_, a_ in zip(dis.home, dis.away, strict=True)]]
+        if not mine.empty:
+            PUB.send_message(F.disagreements_message(mine))
+
+    tables = [r.props for r in runs if r.props is not None]
+    props = pd.concat(tables, ignore_index=True) if tables else pd.DataFrame()
+    kl = kalshi_props(props, d) if not props.empty else pd.DataFrame()
+    csv_path, props = write_csv(runs, proj, d, "morning", dk, pm, kl)
     if not props.empty:
         db.append("prop_projections", props.assign(run_id=run_id, game_date=d.isoformat(),
                                                   model_version=gm.version), d.isoformat())
-        TG.send_message(F.props_message(props, settings()["props"]["telegram_top_n"]))
-    TG.send_document(csv_path, caption=f"All projections {d.isoformat()} (games + every player prop line)")
+    if not kl.empty:
+        db.append("prop_lines", kl.assign(ts=ts, run_id=run_id, game_date=d.isoformat(), model_version=gm.version),
+                  d.isoformat())
+    top_n = settings()["props"].get("top_n", settings()["props"].get("telegram_top_n", 15))
+    PUB.send_message(F.market_props_message(kl, top_n, settings().get("lines", {}).get("prop_flag_edge", 0.04)))
+    PUB.send_document(csv_path, caption=f"All projections {d.isoformat()} (games + every player prop line, "
+                                        f"with DK / Polymarket / Kalshi probabilities where posted)")
 
 
 def pregame(d: date) -> None:
@@ -347,7 +477,8 @@ def pregame(d: date) -> None:
         log.info("no upcoming games on %s", d)
         return
     run_id = uuid.uuid4().hex[:10]
-    dis, note = fetch_and_compare(runs, d, "pregame", run_id, "pregame", gm.version)
+    dis, note, _ = fetch_and_compare(runs, d, "pregame", run_id, "pregame", gm.version)
+    shown = posted_games(d)
 
     changes = []
     for r in runs:
@@ -368,7 +499,7 @@ def pregame(d: date) -> None:
                 mine = mine[[(x.home, x.away, x.market, x.selection, 0 if x.line is None or x.line != x.line else x.line)
                              not in was_keys for x in mine.itertuples()]]
             new_flags = [F.book_line(x) for x in mine.itertuples()]
-        if changed or new_flags:
+        if (changed or new_flags) and (shown is None or r.game_id in shown):
             header = "; ".join(changed) if changed else "new disagreement(s)"
             changes.append(f"⚠️ {header}\n" + F.game_card({**r.__dict__, "book_lines": new_flags}))
     db.append("slates", _slate_rows(runs, d, "pregame", run_id), d.isoformat())
@@ -376,7 +507,7 @@ def pregame(d: date) -> None:
         proj = projection_rows([r for r in runs if _goalie_changed(prev, r)], d, run_id, "pregame", gm.version)
         db.append("projections", proj, d.isoformat())
     if changes:
-        TG.send_message(F.changes_message(changes) + f"\n\n{note}")
+        PUB.send_message(F.changes_message(changes) + f"\n\n{note}")
     else:
         log.info("pregame: no changes (%s)", note)
 

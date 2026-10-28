@@ -1,0 +1,188 @@
+[
+ {
+  "slug": "nhl-cal-edm-2026-10-28",
+  "title": "Flames vs. Oilers",
+  "markets": [
+   {
+    "question": "Flames vs. Oilers",
+    "outcomes": "[\"Flames\", \"Oilers\"]",
+    "outcomePrices": "[\"0.375\", \"0.625\"]",
+    "bestBid": 0.37,
+    "bestAsk": 0.38,
+    "sportsMarketType": "moneyline",
+    "line": null,
+    "liquidityNum": 343402.9393,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Flames vs. Oilers: O/U 4.5",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.835\", \"0.165\"]",
+    "bestBid": 0.83,
+    "bestAsk": 0.84,
+    "sportsMarketType": "totals",
+    "line": 4.5,
+    "liquidityNum": 35529.2394,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Flames vs. Oilers: O/U 5.5",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.62\", \"0.38\"]",
+    "bestBid": 0.61,
+    "bestAsk": 0.63,
+    "sportsMarketType": "totals",
+    "line": 5.5,
+    "liquidityNum": 90619.8723,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Flames vs. Oilers: O/U 6.5",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.525\", \"0.475\"]",
+    "bestBid": 0.52,
+    "bestAsk": 0.53,
+    "sportsMarketType": "totals",
+    "line": 6.5,
+    "liquidityNum": 134144.2455,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Flames vs. Oilers: O/U 7.5",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.305\", \"0.695\"]",
+    "bestBid": 0.3,
+    "bestAsk": 0.31,
+    "sportsMarketType": "totals",
+    "line": 7.5,
+    "liquidityNum": 101715.8538,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Spread: Oilers (-1.5)",
+    "outcomes": "[\"Oilers\", \"Flames\"]",
+    "outcomePrices": "[\"0.415\", \"0.585\"]",
+    "bestBid": 0.41,
+    "bestAsk": 0.42,
+    "sportsMarketType": "spreads",
+    "line": -1.5,
+    "liquidityNum": 177261.2537,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Spread: Oilers (-2.5)",
+    "outcomes": "[\"Oilers\", \"Flames\"]",
+    "outcomePrices": "[\"0.305\", \"0.695\"]",
+    "bestBid": 0.3,
+    "bestAsk": 0.31,
+    "sportsMarketType": "spreads",
+    "line": -2.5,
+    "liquidityNum": 72517.4674,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Spread: Flames (-3.5)",
+    "outcomes": "[\"Flames\", \"Oilers\"]",
+    "outcomePrices": "[\"0.035\", \"0.965\"]",
+    "bestBid": 0.001,
+    "bestAsk": 0.069,
+    "sportsMarketType": "spreads",
+    "line": -3.5,
+    "liquidityNum": 3273.29909,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Spread: Flames (-1.5)",
+    "outcomes": "[\"Flames\", \"Oilers\"]",
+    "outcomePrices": "[\"0.185\", \"0.815\"]",
+    "bestBid": 0.18,
+    "bestAsk": 0.19,
+    "sportsMarketType": "spreads",
+    "line": -1.5,
+    "liquidityNum": 73112.2916,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Spread: Flames (-2.5)",
+    "outcomes": "[\"Flames\", \"Oilers\"]",
+    "outcomePrices": "[\"0.115\", \"0.885\"]",
+    "bestBid": 0.11,
+    "bestAsk": 0.12,
+    "sportsMarketType": "spreads",
+    "line": -2.5,
+    "liquidityNum": 82753.1534,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Spread: Oilers (-3.5)",
+    "outcomes": "[\"Oilers\", \"Flames\"]",
+    "outcomePrices": "[\"0.145\", \"0.855\"]",
+    "bestBid": 0.13,
+    "bestAsk": 0.16,
+    "sportsMarketType": "spreads",
+    "line": -3.5,
+    "liquidityNum": 2917.3055,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Flames vs. Oilers: O/U 2.5",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.9765\", \"0.0235\"]",
+    "bestBid": 0.973,
+    "bestAsk": 0.98,
+    "sportsMarketType": "totals",
+    "line": 2.5,
+    "liquidityNum": 23020.56337,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Flames vs. Oilers: O/U 3.5",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.9\", \"0.1\"]",
+    "bestBid": 0.89,
+    "bestAsk": 0.91,
+    "sportsMarketType": "totals",
+    "line": 3.5,
+    "liquidityNum": 30485.8646,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Flames vs. Oilers: O/U 8.5",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.23\", \"0.77\"]",
+    "bestBid": 0.22,
+    "bestAsk": 0.24,
+    "sportsMarketType": "totals",
+    "line": 8.5,
+    "liquidityNum": 31354.4319,
+    "active": true,
+    "closed": false
+   },
+   {
+    "question": "Flames vs. Oilers: O/U 9.5",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.1\", \"0.9\"]",
+    "bestBid": 0.09,
+    "bestAsk": 0.11,
+    "sportsMarketType": "totals",
+    "line": 9.5,
+    "liquidityNum": 31622.2126,
+    "active": true,
+    "closed": false
+   }
+  ]
+ }
+]

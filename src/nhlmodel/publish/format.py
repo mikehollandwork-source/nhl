@@ -1,4 +1,5 @@
-"""Telegram message formatting (HTML parse mode)."""
+"""Message formatting, written in a small HTML subset (<b>, <i>, <pre>) that publish/discord.py
+converts to Discord markdown and Telegram accepts as-is."""
 
 from __future__ import annotations
 
@@ -51,7 +52,8 @@ def game_card(g: dict) -> str:
 
 def morning_message(date_str: str, version: str, cards: list[str], odds_note: str) -> str:
     head = f"🏒 <b>NHL projections · {date_str}</b>\nmodel {version} · {len(cards)} games\n{odds_note}"
-    legend = "Goalies: ✅ confirmed 🟡 likely ❔ unconfirmed 🤖 our guess"
+    legend = ("Goalies: ✅ confirmed 🟡 likely ❔ unconfirmed 🤖 our guess\n"
+              "Lines: model vs DraftKings no-vig % and price, Polymarket mid; edge vs DK, * = flagged")
     return "\n\n".join([head, legend, *cards])
 
 
@@ -84,21 +86,44 @@ def disagreements_message(d: pd.DataFrame) -> str:
     return "\n".join(rows)
 
 
-def props_message(props: pd.DataFrame, top_n: int) -> str:
-    out = ["🎯 <b>Prop projections</b> (model only, no book lines on free plan)"]
-    ag = props[props.market == "anytime_goal"].sort_values("p_over", ascending=False).head(top_n)
-    out.append("<b>Anytime goal</b><pre>")
-    out += [f"{escape(str(r.player))[:18]:<18} {r.team:<4}{_pct(r.p_over):>5} ({_odds(r.p_over)})" for r in ag.itertuples()]
-    out.append("</pre><b>Shots on goal</b><pre>")
-    sog = props[(props.market == "sog") & (props.line == 2.5)].sort_values("mean", ascending=False).head(top_n)
-    out += [f"{escape(str(r.player))[:18]:<18} {r.team:<4}{r.mean:>4.1f} o2.5 {_pct(r.p_over):>4}" for r in sog.itertuples()]
-    out.append("</pre><b>Points</b><pre>")
-    pts = props[(props.market == "points") & (props.line == 0.5)].sort_values("p_over", ascending=False).head(top_n)
-    out += [f"{escape(str(r.player))[:18]:<18} {r.team:<4}{r.mean:>4.2f} o0.5 {_pct(r.p_over):>4}" for r in pts.itertuples()]
-    out.append("</pre><b>Goalie saves</b><pre>")
-    sv = props[props.market == "saves"].groupby(["player", "team"], as_index=False)["mean"].first()
-    out += [f"{escape(str(r.player))[:18]:<18} {r.team:<4}{r.mean:>5.1f}" for r in sv.sort_values("mean", ascending=False).itertuples()]
-    out.append("</pre>Full list (every player, every line) in the CSV.")
+def _am(price: float) -> str:
+    return f"+{price:.0f}" if price > 0 else f"{price:.0f}"
+
+
+def lines_block(rows: list[dict]) -> str:
+    """Model vs DraftKings (no-vig) vs Polymarket, one row per selection. * = model edge >= threshold."""
+    if not rows:
+        return "<i>No DraftKings lines for this game.</i>"
+    out = ["<pre>", f"{'':<12}{'Model':>6}{'DK':>5}{'DK $':>6}{'Poly':>6}{'Edge':>6}"]
+    for r in rows:
+        poly = _pct(r["poly"]) if r.get("poly") is not None else "–"
+        flag = " *" if r.get("flag") else ""
+        out.append(f"{r['label'][:12]:<12}{_pct(r['model']):>6}{_pct(r['dk']):>5}{_am(r['dk_price']):>6}"
+                   f"{poly:>6}{100 * r['edge']:>+6.1f}{flag}")
+    out.append("</pre>")
+    return "\n".join(out)
+
+
+def market_props_message(cmp: pd.DataFrame, top_n: int, flag_edge: float = 0.04) -> str:
+    """Props that have a Kalshi line: the biggest model-vs-Kalshi gaps per market (both directions)."""
+    if cmp is None or cmp.empty:
+        return "🎯 <b>Player props</b>\nNo Kalshi prop lines for tonight's games yet, so no props posted."
+    out = ["🎯 <b>Player props vs Kalshi</b> (Kalshi = bid/ask mid; edge = model − Kalshi, * = |edge| ≥ "
+           f"{100 * flag_edge:.0f})"]
+    names = {"goals": "Goals", "points": "Points", "assists": "Assists"}
+    for mk, title in names.items():
+        g = cmp[cmp.market == mk]
+        if g.empty:
+            continue
+        g = g.reindex(g.edge.abs().sort_values(ascending=False).index).head(top_n)
+        out.append(f"<b>{title}</b><pre>")
+        out.append(f"{'player':<16}{'tm':<4}{'line':<5}{'model':>6}{'kalshi':>7}{'edge':>6}")
+        for r in g.itertuples():
+            flag = " *" if abs(r.edge) >= flag_edge else ""
+            out.append(f"{escape(str(r.player)[:15]):<16}{r.team:<4}{'o' + format(r.line, 'g'):<5}"
+                       f"{_pct(r.model_prob):>6}{_pct(r.kalshi_prob):>7}{100 * r.edge:>+6.1f}{flag}")
+        out.append("</pre>")
+    out.append("Shots, saves, blocks and PP points have no free line, so they are in the CSV only.")
     return "\n".join(out)
 
 

@@ -102,3 +102,40 @@ def breakdown(g: pd.DataFrame, by: str) -> pd.DataFrame:
 
 def edge_bucket(edge: pd.Series) -> pd.Series:
     return pd.cut(edge, [-1, 0.02, 0.04, 0.06, 0.08, 1], labels=["<2%", "2-4%", "4-6%", "6-8%", "8%+"])
+
+
+# ---- player props vs Kalshi ----
+
+def grade_props(lines: pd.DataFrame, player_games: pd.DataFrame, flag_edge: float = 0.04) -> pd.DataFrame:
+    """lines: posted Kalshi comparisons (player_id, game_id, market, line, model_prob, kalshi_prob, edge).
+    A player who did not play is void (dropped), matching Kalshi's rules. Flagged pick = the side the model
+    prefers when |edge| >= flag_edge, priced at the Kalshi mid."""
+    if lines.empty or player_games.empty:
+        return pd.DataFrame()
+    x = lines.sort_values("ts").drop_duplicates(["game_id", "player_id", "market", "line"], keep="last")
+    pg = player_games[["game_id", "player_id", "goals", "assists", "points"]]
+    x = x.merge(pg, on=["game_id", "player_id"], how="inner")
+    if x.empty:
+        return x
+    stat = np.select([x.market == "goals", x.market == "assists"], [x.goals, x.assists], x.points)
+    x["outcome"] = (stat > x.line).astype(float)
+    eps = 1e-6
+    for col, name in (("model_prob", "model_ll"), ("kalshi_prob", "kalshi_ll")):
+        p = x[col].clip(eps, 1 - eps)
+        x[name] = -(x.outcome * np.log(p) + (1 - x.outcome) * np.log(1 - p))
+    x["flagged"] = x.edge.abs() >= flag_edge
+    over = x.edge > 0
+    price = np.where(over, x.kalshi_prob, 1 - x.kalshi_prob)
+    won = np.where(over, x.outcome == 1, x.outcome == 0)
+    x["units"] = np.where(x.flagged, np.where(won, (1 - price) / price, -1.0), 0.0)
+    x["won"] = won
+    return x
+
+
+def summarize_props(g: pd.DataFrame) -> dict | None:
+    if g is None or g.empty:
+        return None
+    f = g[g.flagged]
+    return {"n": len(g), "model_logloss": float(g.model_ll.mean()), "kalshi_logloss": float(g.kalshi_ll.mean()),
+            "flagged": int(len(f)), "flagged_win_rate": float(f.won.mean()) if len(f) else None,
+            "flagged_units": float(f.units.sum())}

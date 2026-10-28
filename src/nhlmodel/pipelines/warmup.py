@@ -27,7 +27,8 @@ from nhlmodel.ingest import dailyfaceoff as DF
 from nhlmodel.ingest import nhl_api
 from nhlmodel.ingest.http import get_json
 from nhlmodel.ingest.shifts import RAIL_URL, parse_right_rail
-from nhlmodel.publish import telegram as TG
+from nhlmodel.pipelines.daily import posted_games
+from nhlmodel.publish import notify as PUB
 from nhlmodel.sim import markets as M
 from nhlmodel.sim.engine import simulate
 from nhlmodel.sim.model import GameModelV2
@@ -148,6 +149,9 @@ def run() -> None:
     done = db.read("warmups", partitions=[d.isoformat()])
     done_ids = set(done.game_id) if not done.empty else set()
     games = [g for g in games if int(g["id"]) not in done_ids]
+    shown = posted_games(d)        # only games posted this morning (they had a DraftKings line)
+    if shown is not None:
+        games = [g for g in games if int(g["id"]) in shown]
     if not games:
         log.info("no games in warmups")
         return
@@ -176,7 +180,7 @@ def run() -> None:
     if recs:
         db.append("warmups", pd.DataFrame(recs), d.isoformat(), key=["game_id"])
     if msgs:
-        TG.send_message("\n\n".join(msgs))
+        PUB.send_message("\n\n".join(msgs))
     log.info("processed %d games, %d updates posted", len(recs), len(msgs))
 
 

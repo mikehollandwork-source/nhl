@@ -1,18 +1,19 @@
 # NHL projection model
 
 Projects NHL game results and player props every day, compares them with sportsbook lines,
-logs every disagreement, grades the disagreements overnight, and posts everything to Telegram.
+logs every disagreement, grades the disagreements overnight, and posts everything to Discord
+(Telegram optional).
 A separate experiment tries to reverse-engineer how books set their lines.
 
 This is a personal projection and tracking tool, **not a sportsbook**.
 
 ## What runs when (GitHub Actions, times UTC)
 
-| Job | Schedule | Posts to Telegram |
+| Job | Schedule | Posts to Discord |
 |---|---|---|
-| `morning` | 15:43 daily | Game cards (score, win %, puck line, totals, fair odds), flagged disagreements, top prop projections, full CSV |
+| `morning` | 15:43 daily | Game cards **only for games with a DraftKings line**, each with model vs DK (no-vig) vs Polymarket for ML, puck line and total; flagged disagreements; **props that have a Kalshi line**, model vs Kalshi; full CSV |
 | `pregame` | 22:11 and 01:23 daily | Only changes: a new starting goalie or a new disagreement. Also snapshots lines for closing-line value |
-| `nightly` | 09:17 daily | Results recap: model vs book accuracy, flagged-pick record, closing-line value |
+| `nightly` | 09:17 daily | Results recap: model vs book accuracy, flagged-pick record, closing-line value, props vs Kalshi record |
 | `warmup` | every 15 min, 16:00-03:45 | Only when a game reaches warmups and something material changed: referees, scratches, confirmed goalies, re-run projection |
 | `weekly` | Mon 08:37 | Retrain (phase 1 + phase 2) + reverse-engineering report |
 | `ablation` | 1st of month 07:41 | Re-tests which input groups help, then retrains |
@@ -205,15 +206,27 @@ the likeliest places for a real tell.
 
 ## Setup
 
-1. **Telegram**: message @BotFather, `/newbot`, copy the token. Create a channel (or group), add
-   the bot as admin, post one message, then open
-   `https://api.telegram.org/bot<TOKEN>/getUpdates` to read the chat id (channels start with `-100`).
-2. **The Odds API**: free key at https://the-odds-api.com.
+1. **Discord**: in your server, open the channel's settings -> Integrations -> Webhooks -> New
+   Webhook -> Copy Webhook URL.
+2. **The Odds API**: free key at https://the-odds-api.com (DraftKings game lines; about 270 of the
+   500 free monthly credits).
 3. **GitHub secrets** (Settings -> Secrets and variables -> Actions):
-   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `ODDS_API_KEY`.
+   `DISCORD_WEBHOOK_URL`, `ODDS_API_KEY`. Optional: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` to
+   also post to Telegram.
 4. The `data` branch holds all stored data and trained models. If it is ever missing, run the
    `bootstrap` workflow (type `rebuild`).
-5. Run `morning` once by hand with `dry_run` checked, then without it, to see the Telegram output.
+5. Run `morning` once by hand with `dry_run` checked, then without it, to see the Discord output.
+
+## Line sources (all free)
+
+| What | Source | Notes |
+|---|---|---|
+| Game lines (filter + main comparison) | DraftKings via The Odds API free plan | DraftKings' own site blocks cloud servers; games without a DK moneyline are not posted |
+| Second game price | Polymarket (no key) | Bid-ask mid; moneyline includes OT and shootout, same as the model |
+| Player props | Kalshi (no key) | Goals, points, assists (N+ = over N-0.5); bid-ask mid; markets wider than 10 cents are skipped |
+| Shots, saves, blocks, PP points | none free | Projections stay in the CSV only |
+
+Exchange mids carry no bookmaker margin, so they are compared directly; DK prices are de-vigged first.
 
 ## Run locally
 

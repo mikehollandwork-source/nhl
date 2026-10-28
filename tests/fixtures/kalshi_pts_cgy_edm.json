@@ -1,0 +1,74 @@
+[
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-EDMTEMBERSON49-1",
+  "yes_sub_title": "Ty Emberson: 1+",
+  "yes_bid_dollars": "0.1000",
+  "yes_ask_dollars": "0.1600"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-EDMTFREDERIC10-1",
+  "yes_sub_title": "Trent Frederic: 1+",
+  "yes_bid_dollars": "0.2300",
+  "yes_ask_dollars": "0.2400"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-EDMSMUKHAMADULLIN85-1",
+  "yes_sub_title": "Shakir Mukhamadullin: 1+",
+  "yes_bid_dollars": "0.1400",
+  "yes_ask_dollars": "0.2100"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-EDMOMICHAELS43-1",
+  "yes_sub_title": "Owen Michaels: 1+",
+  "yes_bid_dollars": "0.2000",
+  "yes_ask_dollars": "0.2300"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-EDMAFORMENTON26-2",
+  "yes_sub_title": "Alex Formenton: 2+",
+  "yes_bid_dollars": "0.0500",
+  "yes_ask_dollars": "0.0600"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-EDMAFORMENTON26-1",
+  "yes_sub_title": "Alex Formenton: 1+",
+  "yes_bid_dollars": "0.2700",
+  "yes_ask_dollars": "0.2800"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-CGYZWHITECLOUD28-1",
+  "yes_sub_title": "Zach Whitecloud: 1+",
+  "yes_bid_dollars": "0.1200",
+  "yes_ask_dollars": "0.1600"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-CGYYKUZNETSOV37-1",
+  "yes_sub_title": "Yan Kuznetsov: 1+",
+  "yes_bid_dollars": "0.1600",
+  "yes_ask_dollars": "0.2300"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-CGYRSTROME22-2",
+  "yes_sub_title": "Ryan Strome: 2+",
+  "yes_bid_dollars": "0.0400",
+  "yes_ask_dollars": "0.0900"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-CGYRSTROME22-1",
+  "yes_sub_title": "Ryan Strome: 1+",
+  "yes_bid_dollars": "0.3200",
+  "yes_ask_dollars": "0.3500"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-CGYMPOSPISIL76-2",
+  "yes_sub_title": "Martin Pospisil: 2+",
+  "yes_bid_dollars": "0.0100",
+  "yes_ask_dollars": "0.0600"
+ },
+ {
+  "ticker": "KXNHLPTS-26OCT28CGYEDM-CGYMPOSPISIL76-1",
+  "yes_sub_title": "Martin Pospisil: 1+",
+  "yes_bid_dollars": "0.2100",
+  "yes_ask_dollars": "0.2600"
+ }
+]

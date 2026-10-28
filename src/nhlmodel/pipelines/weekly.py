@@ -13,7 +13,7 @@ from nhlmodel.market import tells
 from nhlmodel.pipelines import train, train_v2
 from nhlmodel.pipelines.backfill import backfill_edge
 from nhlmodel.pipelines.nightly import results_frame
-from nhlmodel.publish import telegram as TG
+from nhlmodel.publish import notify as PUB
 from nhlmodel.store import db
 
 log = logging.getLogger("weekly")
@@ -33,10 +33,10 @@ def run() -> None:
             msg += (f"\nLast held-out test ({t.get('season')}): moneyline log-loss {f['ml_logloss']:.4f} "
                     f"vs phase-1 {v['phase1']['ml_logloss']:.4f}; totals {f['tot_logloss']:.4f} "
                     f"vs {v['phase1']['tot_logloss']:.4f}")
-    TG.send_message(msg)
+    PUB.send_message(msg)
     v = res["version"]
     m = res["game_model"]
-    TG.send_message(
+    PUB.send_message(
         f"🛠 <b>Weekly retrain</b> · model {v}\n"
         f"xG log-loss {res['xg']['logloss_cal']:.4f} (no-skill {res['xg']['logloss_base']:.4f}), AUC {res['xg']['auc']:.3f}\n"
         f"Home ice: SOG {m['sog']['is_home']:+.3f}, goals/shot {m['goal']['is_home']:+.3f} (log scale)\n"
@@ -45,10 +45,10 @@ def run() -> None:
     odds = db.read("odds_snapshots")
     cons = db.read("consensus")
     if odds.empty or cons.empty:
-        TG.send_message("🔍 <b>Line reverse-engineering</b>\nNo lines collected yet.")
+        PUB.send_message("🔍 <b>Line reverse-engineering</b>\nNo lines collected yet.")
         return
     results = results_frame(season_for(today_local()))
-    TG.send_message(tells.report(odds, cons, db.read("projections"), db.read("slates"), results))
+    PUB.send_message(tells.report(odds, cons, db.read("projections"), db.read("slates"), results))
 
 
 def main() -> None:
