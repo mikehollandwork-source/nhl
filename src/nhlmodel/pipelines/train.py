@@ -162,6 +162,9 @@ def run(mode: str) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     if mode == "production":
         xg.save(out)
+        rep = out / "ablation_report.json"
+        if rep.exists():  # phase-1 fallback also gets its held-out dispersion factor
+            gm.constants.dispersion = float(json.loads(rep.read_text()).get("final", {}).get("phase1_dispersion", 1.0))
         gm.save(out / "game_model.json")
     (out / f"train_report_{mode}.json").write_text(json.dumps(result, indent=2, default=float))
     return result

@@ -13,7 +13,9 @@ This is a personal projection and tracking tool, **not a sportsbook**.
 | `morning` | 15:43 daily | Game cards (score, win %, puck line, totals, fair odds), flagged disagreements, top prop projections, full CSV |
 | `pregame` | 22:11 and 01:23 daily | Only changes: a new starting goalie or a new disagreement. Also snapshots lines for closing-line value |
 | `nightly` | 09:17 daily | Results recap: model vs book accuracy, flagged-pick record, closing-line value |
-| `weekly` | Mon 08:37 | Retrain summary + reverse-engineering report |
+| `warmup` | every 15 min, 16:00-03:45 | Only when a game reaches warmups and something material changed: referees, scratches, confirmed goalies, re-run projection |
+| `weekly` | Mon 08:37 | Retrain (phase 1 + phase 2) + reverse-engineering report |
+| `ablation` | 1st of month 07:41 | Re-tests which input groups help, then retrains |
 | `ci` | every push | Lint + tests |
 | `bootstrap` | manual only | Rebuilds the `data` branch from scratch |
 
@@ -59,6 +61,65 @@ structurally, plus 2025-26 was an unusually tie-heavy season. Not yet compared w
 closing lines (historical odds are paid-only); my unverified estimate is that NHL closing
 moneylines score roughly 0.675-0.68, i.e. similar to or slightly better than this model.
 The disagreement tracker will measure this directly from the first day lines are collected. Full report: `models/train_report_backtest.json` on the data branch.
+
+## Phase 2: every input that measurably helps
+
+Phase 2 added every public input that could plausibly help, then **kept only what improved
+held-out predictions**. Adding inputs that don't help makes a model worse, so each group had
+to pass a gate.
+
+**New data** (all from free NHL feeds; 2021-22 onward):
+- Shift charts → who was on the ice for every second ("stints"). Ice time rebuilt from them
+  matches the NHL's official figures exactly on the power play and penalty kill, and within
+  about 1% at even strength.
+- Penalties from play-by-play.
+- Referees, linesmen, scratches and head coaches for every game.
+- Venue time zones.
+- NHL EDGE tracking: skating speed bursts, zone time, shot speed (season level).
+- DailyFaceoff lines, PP/PK units, injuries and game-time decisions (live only).
+
+**New model structure** (`sim/model.py`, `sim/engine.py`):
+- Separate even-strength, power-play and shorthanded shot and goal rates, plus a penalty model.
+- The simulator plays out penalties: 2-minute minors end on a power-play goal; 5-minute majors
+  do not.
+- Every simulated goal and shot is tagged by strength, so power-play points and goals come from
+  each player's actual power-play role.
+
+**Candidate input groups:**
+
+| Group | What it is |
+|---|---|
+| lineup | Player impact ratings (ridge regression on 5v5 stints). Tonight's lineup vs the team's usual one; plus finishing skill and PP-unit strength. Three versions were tested. |
+| refs | Referee crew penalty tendency (shrunk). Referees are only posted at warmups. |
+| goalie_detail | Goalie results split by shot danger, rebound control, workload, back-to-backs |
+| travel | Time-zone changes, games in the last 7 days, long road trips |
+| edge | Prior-season EDGE skating speed, offensive-zone time, hard shots |
+| pace | Shared per-game pace factor (small positive correlation between the teams' scoring) |
+
+**Selection protocol**, so the reported test result is not inflated by picking inputs:
+1. Fit on 2021-24 and pick groups on 2024-25.
+2. Refit on 2021-25 and test the final model once on 2025-26.
+
+A group is kept only if the 90% bootstrap interval of its log-loss change is entirely below
+zero on moneyline or totals, without the other getting worse. Results:
+`models/ablation_report.json` on the data branch.
+
+**Calibration finding (dispersion):**
+- Both the phase-1 and phase-2 models were under-confident on the held-out seasons: their
+  win-probability calibration slope was about 1.5, where 1.0 is perfect. Real gaps between teams
+  were bigger than the models said.
+- A single **dispersion factor**, fit on the validation season only, stretches the difference
+  between the two teams' simulated rates while keeping total scoring the same. Every market
+  (moneyline, puck line, totals, props) stays consistent.
+
+ABLATION_RESULTS_PLACEHOLDER
+
+**Live additions:**
+- The morning cards list who is out, game-time decisions and PP1.
+- A `warmup` job runs every 15 minutes during game windows. When a game reaches warmups it
+  pulls referees, scratches and confirmed starters, re-runs that game, and posts a "final" update
+  only if something material changed.
+- The nightly recap adds moneyline accuracy that needs no odds.
 
 ## Disagreement tracking
 
@@ -118,7 +179,12 @@ pytest -q
 
 ## Known limits
 
-- Lineups: assumes skaters who played the team's last game play again (no injury feed).
+- The lineup ratings are 5v5 based. A player's power-play value and finishing are added
+  separately, but special-teams defense of individual players is not modelled.
+- Game-time-decision players are weighted at 50% in the lineup adjustment. DailyFaceoff keeps no
+  history, so this cannot be measured; it is an assumption (`lineups.gtd_play_prob`).
+- Referees and scratches are only public at warmups, so the morning projection never has them.
+- Lineups come from DailyFaceoff; if that page fails, the model falls back to the team's last lineup.
 - Goalie pulled mid-game for performance is not modeled (affects saves props).
 - Scheduled GitHub runs can start 5-30+ minutes late. In public repos GitHub disables schedules
   after 60 days without repo activity; the daily data commits should keep it active.

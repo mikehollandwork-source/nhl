@@ -9,7 +9,8 @@ import logging
 
 from nhlmodel.config import season_for, today_local
 from nhlmodel.market import tells
-from nhlmodel.pipelines import train
+from nhlmodel.pipelines import train, train_v2
+from nhlmodel.pipelines.backfill import backfill_edge
 from nhlmodel.pipelines.nightly import results_frame
 from nhlmodel.publish import telegram as TG
 from nhlmodel.store import db
@@ -18,7 +19,10 @@ log = logging.getLogger("weekly")
 
 
 def run() -> None:
+    backfill_edge([season_for(today_local())])
     res = train.run("production")
+    v2 = train_v2.run()
+    TG.send_message(f"🛠 <b>Phase-2 model</b> {v2['version']} · inputs on: {', '.join(v2['groups']) or 'base only'}")
     v = res["version"]
     m = res["game_model"]
     TG.send_message(

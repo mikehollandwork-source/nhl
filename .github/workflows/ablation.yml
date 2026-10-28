@@ -1,0 +1,44 @@
+name: ablation
+
+on:
+  schedule:
+    - cron: "41 7 1 * *"    # 1st of each month: re-test which input groups help
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Slate date YYYY-MM-DD (blank = today, US/Eastern)"
+        required: false
+      dry_run:
+        description: "Print messages instead of posting to Telegram"
+        type: boolean
+        default: false
+
+concurrency:
+  group: data-branch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      NHL_DATA_DIR: ${{ github.workspace }}/data
+      NHL_DATE: ${{ inputs.date }}
+      NHL_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Ablation backtest, then retrain with the surviving inputs
+        run: python -m nhlmodel.pipelines.ablation --sims 2000 --props-games 300 && python -m nhlmodel.pipelines.train_v2
+      - uses: ./.github/actions/save-data
+        if: ${{ !cancelled() }}
+        with:
+          message: "ablation ${{ github.run_id }}"
+      - uses: ./.github/actions/notify-failure
+        if: ${{ failure() }}

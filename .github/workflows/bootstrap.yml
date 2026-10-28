@@ -21,7 +21,7 @@ jobs:
   run:
     if: ${{ inputs.confirm == 'rebuild' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
     env:
       NHL_DATA_DIR: ${{ github.workspace }}/data
     steps:
@@ -31,10 +31,13 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -e .
-      - name: Backfill all seasons
-        run: python -m nhlmodel.pipelines.backfill --all
+      - name: Backfill all seasons (games, shifts, officials, EDGE)
+        run: python -m nhlmodel.pipelines.backfill --all --edge
       - name: Train production models
-        run: python -m nhlmodel.pipelines.train --mode production
+        run: |
+          python -m nhlmodel.pipelines.train --mode production
+          python -m nhlmodel.pipelines.ablation --sims 2000 --props-games 300
+          python -m nhlmodel.pipelines.train_v2
       - name: Publish data branch
         working-directory: data
         run: |

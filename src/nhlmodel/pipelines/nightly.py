@@ -9,10 +9,11 @@ import argparse
 import logging
 from datetime import timedelta
 
+import numpy as np
 import pandas as pd
 
 from nhlmodel.config import out_dir, season_for, today_local
-from nhlmodel.pipelines.backfill import backfill_season
+from nhlmodel.pipelines.backfill import backfill_season, refresh_extras
 from nhlmodel.publish import format as F
 from nhlmodel.publish import telegram as TG
 from nhlmodel.store import db
@@ -29,12 +30,41 @@ def results_frame(season: int) -> pd.DataFrame:
         ["game_date", "home", "away", "home_score", "away_score"]]
 
 
+def model_accuracy(season: int, day) -> str | None:
+    """Moneyline accuracy of the morning projections (no odds needed)."""
+    proj = db.read("projections")
+    if proj.empty:
+        return None
+    p = proj[(proj.run_type == "morning") & (proj.market == "h2h") & (proj.selection == "home")]
+    p = p.sort_values("ts").drop_duplicates(["game_date", "home", "away"], keep="last")
+    res = results_frame(season)
+    m = p.merge(res, on=["game_date", "home", "away"])
+    if m.empty:
+        return None
+    y = (m.home_score > m.away_score).astype(int)
+    pr = m.model_prob.clip(1e-6, 1 - 1e-6)
+    m["ll"] = -(y * np.log(pr) + (1 - y) * np.log(1 - pr))
+    m["fav_won"] = ((pr >= 0.5) == (y == 1)).astype(int)
+    last = m[m.game_date == day.isoformat()]
+    lines = ["🎯 <b>Model accuracy</b> (moneyline, no odds needed)"]
+    if len(last):
+        lines.append(f"Last night: favourites won {int(last.fav_won.sum())}/{len(last)}")
+    lines.append(f"Season: {len(m)} games · log-loss {m.ll.mean():.4f} (coin flip 0.6931) · "
+                 f"favourites won {100 * m.fav_won.mean():.0f}%")
+    return "\n".join(lines)
+
+
 def run() -> None:
     today = today_local()
     yesterday = today - timedelta(days=1)
     season = season_for(yesterday)
     added = backfill_season(season)
     log.info("ingested %d new games", added)
+    refresh_extras(season)
+
+    acc = model_accuracy(season, yesterday)
+    if acc:
+        TG.send_message(acc)
 
     dis = db.read("disagreements")
     if dis.empty:

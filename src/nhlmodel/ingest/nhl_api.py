@@ -73,13 +73,16 @@ def name_key(name: str) -> str:
     return "".join(ch for ch in s.lower() if ch.isalnum())
 
 
-def fetch_games(game_ids: list[int], concurrency: int = 8) -> dict[int, tuple[dict | None, dict | None]]:
-    urls = []
+def fetch_games(game_ids: list[int], concurrency: int = 8, extras: bool = True) -> dict[int, dict]:
+    """Fetch play-by-play, boxscore and (with extras) right-rail + shift charts for each game."""
+    from nhlmodel.ingest.shifts import RAIL_URL, SHIFTS_URL
+    urls: dict[int, dict[str, str]] = {}
     for g in game_ids:
-        urls += [f"{WEB}/gamecenter/{g}/play-by-play", f"{WEB}/gamecenter/{g}/boxscore"]
-    got = fetch_many(urls, concurrency=concurrency)
-    return {g: (got.get(f"{WEB}/gamecenter/{g}/play-by-play"), got.get(f"{WEB}/gamecenter/{g}/boxscore"))
-            for g in game_ids}
+        urls[g] = {"pbp": f"{WEB}/gamecenter/{g}/play-by-play", "box": f"{WEB}/gamecenter/{g}/boxscore"}
+        if extras:
+            urls[g].update({"rail": RAIL_URL.format(gid=g), "shifts": SHIFTS_URL.format(gid=g)})
+    got = fetch_many([u for d in urls.values() for u in d.values()], concurrency=concurrency)
+    return {g: {k: got.get(u) for k, u in d.items()} for g, d in urls.items()}
 
 
 # ----------------------------------------------------------------------------- parsing helpers
@@ -135,7 +138,7 @@ def _attack_sign(is_home: bool, home_defending: str | None, x: float | None, zon
 def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
     """Turn one game's play-by-play + boxscore into table rows.
 
-    Returns frames: games, shots, player_games, goalie_games, states.
+    Returns frames: games, shots, player_games, goalie_games, states, penalties.
     """
     gid = pbp["id"]
     gtype = int(pbp["gameType"])
@@ -147,6 +150,7 @@ def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
     plays = sorted(pbp.get("plays", []), key=lambda p: p.get("sortOrder", 0))
     player_team = {r["playerId"]: r["teamId"] for r in pbp.get("rosterSpots", [])}
     shots = []
+    penalties: list[dict] = []
     states: dict[tuple, list[float]] = {}
     goals_by_team = {home_id: 0, away_id: 0}
     reg_goals = {home_id: 0, away_id: 0}
@@ -221,6 +225,7 @@ def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
                 "score_diff": score_for - score_against,
                 "rebound": rebound, "rush": rush,
                 "assist1_id": det.get("assist1PlayerId"), "assist2_id": det.get("assist2PlayerId"),
+                "blocker_id": det.get("blockingPlayerId"),
                 "is_goal": ev == "goal",
             }
             shots.append(row)
@@ -243,6 +248,18 @@ def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
                     for pid in (row["shooter_id"], row["assist1_id"], row["assist2_id"]):
                         if pid:
                             pp_points[pid] = pp_points.get(pid, 0) + 1
+
+        if etype == "penalty":
+            # Verified: the event owner is the team that committed the penalty.
+            ag, ask, hsk, hg = sit
+            penalties.append({
+                "game_id": gid, "season": season, "game_type": gtype, "game_date": gdate,
+                "event_id": p.get("eventId"), "period": per, "t": t,
+                "team_id": det.get("eventOwnerTeamId"), "committed_by": det.get("committedByPlayerId"),
+                "drawn_by": det.get("drawnByPlayerId"), "served_by": det.get("servedByPlayerId"),
+                "type_code": det.get("typeCode"), "desc": det.get("descKey"), "minutes": det.get("duration"),
+                "home_skaters": hsk, "away_skaters": ask,
+            })
 
         # Goalie pulls in regulation P3 while trailing. A pull counts only when it is still in effect
         # at the next event (filters out brief delayed-penalty pulls) or that event is a goal.
@@ -283,6 +300,7 @@ def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
         "away_pull_remaining": pulls[away_id][0] if pulls[away_id] else None,
         "away_pull_deficit": pulls[away_id][1] if pulls[away_id] else None,
         "game_state": pbp.get("gameState"),
+        "venue_utc_offset": _offset_hours(pbp.get("venueUTCOffset")),
     }])
 
     st_rows = [{"game_id": gid, "season": season, "game_type": gtype, "period_bucket": k[0],
@@ -292,7 +310,16 @@ def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
 
     pg, gg = _parse_box(box, gid, season, gtype, gdate, pp_points) if box else (pd.DataFrame(), pd.DataFrame())
     return {"games": games, "shots": pd.DataFrame(shots), "player_games": pg, "goalie_games": gg,
-            "states": pd.DataFrame(st_rows)}
+            "states": pd.DataFrame(st_rows), "penalties": pd.DataFrame(penalties)}
+
+
+def _offset_hours(s: str | None) -> float | None:
+    """'-04:00' -> -4.0"""
+    if not s:
+        return None
+    sign = -1 if s.startswith("-") else 1
+    h, m = s.lstrip("+-").split(":")
+    return sign * (int(h) + int(m) / 60)
 
 
 def _state_key(period: int, score_diff_home: int, sit: tuple[int, int, int, int], t: int) -> tuple:

@@ -47,7 +47,31 @@ props:
     blocks: [0.5, 1.5, 2.5]
     saves: [20.5, 22.5, 24.5, 26.5, 28.5, 30.5, 32.5]
   telegram_top_n: 15               # props shown in the Telegram message (full list goes in the CSV)
+  # Extra game-to-game variance measured from 2022-25 box scores (beyond the simulation's own):
+  player_var: 0.03                 # a player's share of his team's shots ("hot night")
+  team_sog_var: 0.029              # a team's saved-shot volume (shots on goal / goalie saves)
 
 tells:
   min_games: 600                   # don't report reverse-engineering findings below this sample
   fdr_alpha: 0.10                  # Benjamini-Hochberg false discovery rate
+
+model:
+  # 2 = phase-2 model (special teams, penalties, optional input groups); 1 = phase-1 fallback.
+  version: 2
+  # Input groups switched on. Set from the latest ablation (models/ablation_report.json) when
+  # `groups_from_ablation` is true; otherwise this list is used as written.
+  groups_from_ablation: true
+  groups: []
+  pace_var: 0.0
+  dispersion: 1.0      # stretch factor for matchup differences; taken from the ablation when available
+
+lineups:
+  # Probability a "game-time decision" player dresses. Not measurable from history (DailyFaceoff
+  # keeps no archive), so this is an assumption: 0.5. Used only in the lineup-strength adjustment.
+  gtd_play_prob: 0.5
+  # Typical power-play minutes for PP1 / PP2 skaters are measured from shift data at training time
+  # and stored in models/game_model_v2.json (meta.pp_units).
+
+warmup:
+  # A game gets a "final" update when its moneyline moves at least this much (probability points)
+  ml_change: 0.02

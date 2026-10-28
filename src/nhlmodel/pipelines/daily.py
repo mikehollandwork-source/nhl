@@ -25,6 +25,7 @@ from nhlmodel.features.xg import XGModel
 from nhlmodel.ingest import dailyfaceoff as DF
 from nhlmodel.ingest import nhl_api, odds_api
 from nhlmodel.market.devig import prob_to_american
+from nhlmodel.pipelines import slate_v2
 from nhlmodel.pipelines.backfill import backfill_season
 from nhlmodel.publish import format as F
 from nhlmodel.publish import telegram as TG
@@ -56,6 +57,7 @@ class GameRun:
     sim: SimResult | None = None
     summary: dict | None = None
     props: pd.DataFrame | None = None
+    notes: list | None = None
 
 
 # ----------------------------------------------------------------------------- inputs
@@ -136,6 +138,10 @@ def project_slate(d: date, run_type: str) -> tuple[list[GameRun], GameModel, H.H
         games = [g for g in games if datetime.fromisoformat(g["startTimeUTC"].replace("Z", "+00:00")) > now]
     if not games:
         return [], None, None
+    if slate_v2.available():
+        dicts, gm2, cache = slate_v2.project(d, games, lineup, resolve_goalie, rest_flags)
+        slate_v2.save_cache(cache)
+        return [GameRun(**x) for x in dicts], gm2, None
     xg, gm = load_models()
     h = H.load(xg)
     lg = T.latest_league_average(h.team_games, d)

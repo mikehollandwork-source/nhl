@@ -185,3 +185,79 @@ def latest_goalie_factor(gr: pd.DataFrame, goalie_id: int | None) -> tuple[float
     if r.empty:
         return 1.0, 0.0
     return float(r.goalie_factor.iloc[0]), float(r.career_xga.iloc[0])
+
+
+# ----------------------------------------------------------------------------- goalie detail
+
+DANGER_EDGES = (0.05, 0.15)  # xG per shot: low < 0.05 <= mid < 0.15 <= high
+
+
+def goalie_detail(shots: pd.DataFrame, goalie_games: pd.DataFrame, k_xg: float = 40.0,
+                  k_reb: float = 300.0, halflife: float = 40.0) -> pd.DataFrame:
+    """Pre-game goalie detail per goalie-game (+ game_id -1 'next game' rows):
+
+    g_high   : goals allowed / xG on high-danger shots (xG >= 0.15), shrunk to 1
+    g_lowmid : same for shots below 0.15
+    g_rebound: rebound shots allowed per save, relative to league, shrunk to 1
+    starts7  : starts in the previous 7 days;  g_b2b: started the previous day too
+    """
+    s = shots[shots.goalie_id.notna() & ~shots.empty_net & shots.event.isin(["sog", "goal", "miss"])].copy()
+    s["goalie_id"] = s.goalie_id.astype(int)
+    s["high"] = s.xg >= DANGER_EDGES[1]
+    s["g"] = s.is_goal.astype(int)
+    s["save"] = (s.event == "sog").astype(int)
+    s["reb"] = s.rebound.astype(int)
+    per = s.groupby(["game_id", "goalie_id", "high"]).agg(xg=("xg", "sum"), ga=("g", "sum")).unstack("high").fillna(0)
+    per.columns = [f"{c}_{'hi' if h else 'lo'}" for c, h in per.columns]
+    per = per.join(s.groupby(["game_id", "goalie_id"]).agg(saves=("save", "sum"), reb=("reb", "sum"))).reset_index()
+    for c in ("xg_hi", "xg_lo", "ga_hi", "ga_lo"):
+        if c not in per:
+            per[c] = 0.0
+    dates = goalie_games[["game_id", "game_date"]].drop_duplicates("game_id")
+    per = per.merge(dates, on="game_id")
+    per["game_date"] = pd.to_datetime(per["game_date"]).dt.date
+    lg_reb = per.reb.sum() / max(per.saves.sum(), 1)
+
+    starts = goalie_games[goalie_games.starter][["player_id", "game_date"]].copy()
+    starts["game_date"] = pd.to_datetime(starts.game_date).dt.date
+    start_dates = starts.groupby("player_id")["game_date"].apply(lambda x: sorted(x)).to_dict()
+
+    decay = 0.5 ** (1.0 / halflife)
+    out = []
+    for gid, g in per.sort_values(["game_date", "game_id"]).groupby("goalie_id", sort=False):
+        acc = np.zeros(6)  # xg_hi, ga_hi, xg_lo, ga_lo, saves, reb
+        recs = []
+        sd = start_dates.get(gid, [])
+        for row in g.itertuples(index=False):
+            recs.append(_detail(acc, k_xg, k_reb, lg_reb) + _workload(sd, row.game_date))
+            acc = acc * decay + np.array([row.xg_hi, row.ga_hi, row.xg_lo, row.ga_lo, row.saves, row.reb])
+        cols = ["g_high", "g_lowmid", "g_rebound", "starts7", "g_b2b"]
+        d = pd.DataFrame(recs, columns=cols)
+        d.insert(0, "game_id", g.game_id.to_numpy())
+        d.insert(1, "goalie_id", gid)
+        out.append(d)
+        out.append(pd.DataFrame([{"game_id": -1, "goalie_id": gid,
+                                  **dict(zip(cols[:3], _detail(acc, k_xg, k_reb, lg_reb), strict=True)),
+                                  "starts7": 0, "g_b2b": 0}]))
+    return pd.concat(out, ignore_index=True)
+
+
+def _detail(acc: np.ndarray, k_xg: float, k_reb: float, lg_reb: float) -> tuple[float, float, float]:
+    xh, gh, xl, gl, sv, rb = acc
+    return ((gh + k_xg) / (xh + k_xg), (gl + k_xg) / (xl + k_xg),
+            ((rb + k_reb * lg_reb) / (sv + k_reb)) / lg_reb if lg_reb > 0 else 1.0)
+
+
+def _workload(start_dates: list, d) -> tuple[int, int]:
+    prior = [x for x in start_dates if x < d]
+    s7 = sum(1 for x in prior if (d - x).days <= 7)
+    b2b = int(bool(prior) and (d - prior[-1]).days == 1)
+    return s7, b2b
+
+
+def workload_for(goalie_games: pd.DataFrame, goalie_id: int | None, d) -> tuple[int, int]:
+    """Live: (starts in last 7 days, started yesterday) for tonight's starter."""
+    if goalie_id is None:
+        return 0, 0
+    g = goalie_games[(goalie_games.player_id == goalie_id) & goalie_games.starter]
+    return _workload(sorted(pd.to_datetime(g.game_date).dt.date), d)

@@ -42,6 +42,8 @@ def game_card(g: dict) -> str:
         f"PL -1.5: {a} {_pct(s['p_away_m15'])} · {h} {_pct(s['p_home_m15'])}",
         f"Total: o5.5 {_pct(s['p_over_5_5'])} · o6.5 {_pct(s['p_over_6_5'])}",
     ]
+    for n in g.get("notes") or []:
+        lines.append(f"<i>{escape(n)}</i>")
     for d in g.get("book_lines", []):
         lines.append(d)
     return "\n".join(lines)
