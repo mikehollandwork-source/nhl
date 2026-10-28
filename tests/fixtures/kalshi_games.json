@@ -1,0 +1,254 @@
+[
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-9",
+  "title": "Full Game: Over 8.5 goals scored",
+  "floor_strike": 8.5,
+  "yes_bid_dollars": "0.1900",
+  "yes_ask_dollars": "0.2000",
+  "no_bid_dollars": "0.8000",
+  "no_ask_dollars": "0.8100"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-8",
+  "title": "Full Game: Over 7.5 goals scored",
+  "floor_strike": 7.5,
+  "yes_bid_dollars": "0.2700",
+  "yes_ask_dollars": "0.2800",
+  "no_bid_dollars": "0.7200",
+  "no_ask_dollars": "0.7300"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-7",
+  "title": "Full Game: Over 6.5 goals scored",
+  "floor_strike": 6.5,
+  "yes_bid_dollars": "0.4900",
+  "yes_ask_dollars": "0.5000",
+  "no_bid_dollars": "0.5000",
+  "no_ask_dollars": "0.5100"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-6",
+  "title": "Full Game: Over 5.5 goals scored",
+  "floor_strike": 5.5,
+  "yes_bid_dollars": "0.6000",
+  "yes_ask_dollars": "0.6100",
+  "no_bid_dollars": "0.3900",
+  "no_ask_dollars": "0.4000"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-5",
+  "title": "Full Game: Over 4.5 goals scored",
+  "floor_strike": 4.5,
+  "yes_bid_dollars": "0.8100",
+  "yes_ask_dollars": "0.8200",
+  "no_bid_dollars": "0.1800",
+  "no_ask_dollars": "0.1900"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-4",
+  "title": "Full Game: Over 3.5 goals scored",
+  "floor_strike": 3.5,
+  "yes_bid_dollars": "0.8800",
+  "yes_ask_dollars": "0.8900",
+  "no_bid_dollars": "0.1100",
+  "no_ask_dollars": "0.1200"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-3",
+  "title": "Full Game: Over 2.5 goals scored",
+  "floor_strike": 2.5,
+  "yes_bid_dollars": "0.9700",
+  "yes_ask_dollars": "0.9800",
+  "no_bid_dollars": "0.0200",
+  "no_ask_dollars": "0.0300"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-2",
+  "title": "Full Game: Over 1.5 goals scored",
+  "floor_strike": 1.5,
+  "yes_bid_dollars": "0.9800",
+  "yes_ask_dollars": "0.9900",
+  "no_bid_dollars": "0.0100",
+  "no_ask_dollars": "0.0200"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28NJCOL-10",
+  "title": "Full Game: Over 9.5 goals scored",
+  "floor_strike": 9.5,
+  "yes_bid_dollars": "0.0900",
+  "yes_ask_dollars": "0.1000",
+  "no_bid_dollars": "0.9000",
+  "no_ask_dollars": "0.9100"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-9",
+  "title": "Full Game: Over 8.5 goals scored",
+  "floor_strike": 8.5,
+  "yes_bid_dollars": "0.2100",
+  "yes_ask_dollars": "0.2300",
+  "no_bid_dollars": "0.7700",
+  "no_ask_dollars": "0.7900"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-8",
+  "title": "Full Game: Over 7.5 goals scored",
+  "floor_strike": 7.5,
+  "yes_bid_dollars": "0.3000",
+  "yes_ask_dollars": "0.3100",
+  "no_bid_dollars": "0.6900",
+  "no_ask_dollars": "0.7000"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-7",
+  "title": "Full Game: Over 6.5 goals scored",
+  "floor_strike": 6.5,
+  "yes_bid_dollars": "0.5100",
+  "yes_ask_dollars": "0.5200",
+  "no_bid_dollars": "0.4800",
+  "no_ask_dollars": "0.4900"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-6",
+  "title": "Full Game: Over 5.5 goals scored",
+  "floor_strike": 5.5,
+  "yes_bid_dollars": "0.6200",
+  "yes_ask_dollars": "0.6300",
+  "no_bid_dollars": "0.3700",
+  "no_ask_dollars": "0.3800"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-5",
+  "title": "Full Game: Over 4.5 goals scored",
+  "floor_strike": 4.5,
+  "yes_bid_dollars": "0.8300",
+  "yes_ask_dollars": "0.8400",
+  "no_bid_dollars": "0.1600",
+  "no_ask_dollars": "0.1700"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-4",
+  "title": "Full Game: Over 3.5 goals scored",
+  "floor_strike": 3.5,
+  "yes_bid_dollars": "0.8900",
+  "yes_ask_dollars": "0.9000",
+  "no_bid_dollars": "0.1000",
+  "no_ask_dollars": "0.1100"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-3",
+  "title": "Full Game: Over 2.5 goals scored",
+  "floor_strike": 2.5,
+  "yes_bid_dollars": "0.9700",
+  "yes_ask_dollars": "0.9900",
+  "no_bid_dollars": "0.0100",
+  "no_ask_dollars": "0.0300"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-2",
+  "title": "Full Game: Over 1.5 goals scored",
+  "floor_strike": 1.5,
+  "yes_bid_dollars": "0.9800",
+  "yes_ask_dollars": "0.9900",
+  "no_bid_dollars": "0.0100",
+  "no_ask_dollars": "0.0200"
+ },
+ {
+  "ticker": "KXNHLTOTAL-26OCT28CGYEDM-10",
+  "title": "Full Game: Over 9.5 goals scored",
+  "floor_strike": 9.5,
+  "yes_bid_dollars": "0.1000",
+  "yes_ask_dollars": "0.1100",
+  "no_bid_dollars": "0.8900",
+  "no_ask_dollars": "0.9000"
+ },
+ {
+  "ticker": "KXNHLSPREAD-26OCT28NJCOL-NJ3",
+  "title": "New Jersey wins by over 2.5 goals",
+  "floor_strike": 2.5,
+  "yes_bid_dollars": "0.1300",
+  "yes_ask_dollars": "0.1400",
+  "no_bid_dollars": "0.8600",
+  "no_ask_dollars": "0.8700"
+ },
+ {
+  "ticker": "KXNHLSPREAD-26OCT28NJCOL-NJ2",
+  "title": "New Jersey wins by over 1.5 goals",
+  "floor_strike": 1.5,
+  "yes_bid_dollars": "0.2300",
+  "yes_ask_dollars": "0.2400",
+  "no_bid_dollars": "0.7600",
+  "no_ask_dollars": "0.7700"
+ },
+ {
+  "ticker": "KXNHLSPREAD-26OCT28NJCOL-COL3",
+  "title": "Colorado wins by over 2.5 goals",
+  "floor_strike": 2.5,
+  "yes_bid_dollars": "0.2400",
+  "yes_ask_dollars": "0.2500",
+  "no_bid_dollars": "0.7500",
+  "no_ask_dollars": "0.7600"
+ },
+ {
+  "ticker": "KXNHLSPREAD-26OCT28NJCOL-COL2",
+  "title": "Colorado wins by over 1.5 goals",
+  "floor_strike": 1.5,
+  "yes_bid_dollars": "0.3500",
+  "yes_ask_dollars": "0.3600",
+  "no_bid_dollars": "0.6400",
+  "no_ask_dollars": "0.6500"
+ },
+ {
+  "ticker": "KXNHLSPREAD-26OCT28CGYEDM-EDM3",
+  "title": "Edmonton wins by over 2.5 goals",
+  "floor_strike": 2.5,
+  "yes_bid_dollars": "0.2900",
+  "yes_ask_dollars": "0.3000",
+  "no_bid_dollars": "0.7000",
+  "no_ask_dollars": "0.7100"
+ },
+ {
+  "ticker": "KXNHLSPREAD-26OCT28CGYEDM-EDM2",
+  "title": "Edmonton wins by over 1.5 goals",
+  "floor_strike": 1.5,
+  "yes_bid_dollars": "0.4100",
+  "yes_ask_dollars": "0.4200",
+  "no_bid_dollars": "0.5800",
+  "no_ask_dollars": "0.5900"
+ },
+ {
+  "ticker": "KXNHLSPREAD-26OCT28CGYEDM-CGY3",
+  "title": "Calgary wins by over 2.5 goals",
+  "floor_strike": 2.5,
+  "yes_bid_dollars": "0.1100",
+  "yes_ask_dollars": "0.1200",
+  "no_bid_dollars": "0.8800",
+  "no_ask_dollars": "0.8900"
+ },
+ {
+  "ticker": "KXNHLSPREAD-26OCT28CGYEDM-CGY2",
+  "title": "Calgary wins by over 1.5 goals",
+  "floor_strike": 1.5,
+  "yes_bid_dollars": "0.1900",
+  "yes_ask_dollars": "0.2000",
+  "no_bid_dollars": "0.8000",
+  "no_ask_dollars": "0.8100"
+ },
+ {
+  "ticker": "KXNHLGAME-26NOV01EDMNYR-NYR",
+  "title": "New York R wins",
+  "floor_strike": null,
+  "yes_bid_dollars": "0.5000",
+  "yes_ask_dollars": "0.5500",
+  "no_bid_dollars": "0.4500",
+  "no_ask_dollars": "0.5000"
+ },
+ {
+  "ticker": "KXNHLGAME-26NOV01EDMNYR-EDM",
+  "title": "Edmonton wins",
+  "floor_strike": null,
+  "yes_bid_dollars": "0.4500",
+  "yes_ask_dollars": "0.4900",
+  "no_bid_dollars": "0.5100",
+  "no_ask_dollars": "0.5500"
+ }
+]

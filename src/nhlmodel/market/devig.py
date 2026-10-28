@@ -97,3 +97,8 @@ def ev(prob: float, price_american: float) -> float:
 def log_loss(p: float, outcome: int) -> float:
     p = min(max(p, 1e-9), 1 - 1e-9)
     return -math.log(p if outcome else 1 - p)
+
+
+def cents_to_american(price: float) -> float:
+    """Exchange price in dollars (0.38 = 38 cents) -> American odds, rounded (0.38 -> +163)."""
+    return float(round(prob_to_american(price)))

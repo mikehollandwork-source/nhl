@@ -53,7 +53,8 @@ def game_card(g: dict) -> str:
 def morning_message(date_str: str, version: str, cards: list[str], odds_note: str) -> str:
     head = f"🏒 <b>NHL projections · {date_str}</b>\nmodel {version} · {len(cards)} games\n{odds_note}"
     legend = ("Goalies: ✅ confirmed 🟡 likely ❔ unconfirmed 🤖 our guess\n"
-              "Lines: model vs DraftKings no-vig % and price, Polymarket mid; edge vs DK, * = flagged")
+              "Lines: model % and fair odds vs the best buy price on Polymarket (PM) or Kalshi (KS), as American "
+              "odds; edge = model − price %, * = flagged")
     return "\n\n".join([head, legend, *cards])
 
 
@@ -61,8 +62,9 @@ def book_line(r) -> str:
     sel = {"home": r.home, "away": r.away, "over": "Over", "under": "Under"}[r.selection]
     ln = "" if r.market == "h2h" else f" {r.line:+g}" if r.market == "spreads" else f" {r.line:g}"
     flag = " 🚩" if r.flagged else ""
-    return (f"{_mk(r.market)} {sel}{ln}: model {_pct(r.model_prob)} vs book {_pct(r.book_prob)} "
-            f"(edge {100 * r.edge:+.1f}) best {r.best_price:+.0f} @{r.best_book}{flag}")
+    src = {"polymarket": "Polymarket", "kalshi": "Kalshi"}.get(r.best_book, r.best_book)
+    return (f"{_mk(r.market)} {sel}{ln}: model {_pct(r.model_prob)} ({_odds(r.model_prob)}) vs "
+            f"{_am(r.best_price)} on {src} (edge {100 * r.edge:+.1f}){flag}")
 
 
 def _mk(m: str) -> str:
@@ -73,14 +75,14 @@ def disagreements_message(d: pd.DataFrame) -> str:
     f = d[d.flagged].sort_values("edge", ascending=False)
     if f.empty:
         return "🚩 <b>Disagreements</b>\nNone above threshold today."
-    rows = ["🚩 <b>Disagreements</b> (model higher than book by ≥ threshold)", "<pre>"]
-    rows.append(f"{'game':<10}{'bet':<14}{'model':>6}{'book':>6}{'edge':>6}{'best':>6}")
+    rows = ["🚩 <b>Disagreements</b> (model above the buy price by ≥ threshold)", "<pre>"]
+    rows.append(f"{'game':<10}{'bet':<14}{'model':>6}{'price':>6}{'edge':>6}")
     for r in f.itertuples():
         sel = {"home": r.home, "away": r.away, "over": "O", "under": "U"}[r.selection]
         ln = "" if r.market == "h2h" else f"{r.line:+g}" if r.market == "spreads" else f"{r.line:g}"
         bet = f"{_mk(r.market)} {sel}{ln}"
-        rows.append(f"{r.away + '@' + r.home:<10}{bet:<14}{_pct(r.model_prob):>6}{_pct(r.book_prob):>6}"
-                    f"{100 * r.edge:>+6.1f}{r.best_price:>+6.0f}")
+        rows.append(f"{r.away + '@' + r.home:<10}{bet:<14}{_pct(r.model_prob):>6}{_am(r.best_price):>6}"
+                    f"{100 * r.edge:>+6.1f}")
     rows.append("</pre>")
     rows.append("Tracking only: edges are small and most will lose. See nightly recap for the record.")
     return "\n".join(rows)
@@ -91,15 +93,15 @@ def _am(price: float) -> str:
 
 
 def lines_block(rows: list[dict]) -> str:
-    """Model vs DraftKings (no-vig) vs Polymarket, one row per selection. * = model edge >= threshold."""
+    """Model vs the best buy price on Polymarket (PM) / Kalshi (KS), as American odds.
+    Fair = the model's probability as American odds; edge = model - price's implied %; * = flagged."""
     if not rows:
-        return "<i>No DraftKings lines for this game.</i>"
-    out = ["<pre>", f"{'':<12}{'Model':>6}{'DK':>5}{'DK $':>6}{'Poly':>6}{'Edge':>6}"]
+        return "<i>No Polymarket or Kalshi lines for this game.</i>"
+    out = ["<pre>", f"{'':<12}{'Model':>6}{'Fair':>6}{'Price':>6}{'':>4}{'Edge':>6}"]
     for r in rows:
-        poly = _pct(r["poly"]) if r.get("poly") is not None else "–"
         flag = " *" if r.get("flag") else ""
-        out.append(f"{r['label'][:12]:<12}{_pct(r['model']):>6}{_pct(r['dk']):>5}{_am(r['dk_price']):>6}"
-                   f"{poly:>6}{100 * r['edge']:>+6.1f}{flag}")
+        out.append(f"{r['label'][:12]:<12}{_pct(r['model']):>6}{_odds(r['model']):>6}{_am(r['price']):>6}"
+                   f"{r['src']:>4}{100 * r['edge']:>+6.1f}{flag}")
     out.append("</pre>")
     return "\n".join(out)
 
@@ -112,8 +114,8 @@ def market_props_message(cmp: pd.DataFrame, top_n: int, flag_edge: float = 0.04)
     cmp = cmp[cmp.edge > 0]
     if cmp.empty:
         return "🎯 <b>Player props</b>\nNo props where our projection is above Kalshi's price tonight."
-    out = ["🎯 <b>Player props: model above Kalshi</b> (overs only; Kalshi = bid/ask mid; edge = model − Kalshi, "
-           f"* = edge ≥ {100 * flag_edge:.0f})"]
+    out = ["🎯 <b>Player props: model above Kalshi's price</b> (overs only; price = Kalshi buy price as "
+           f"American odds; edge = model − price %, * = edge ≥ {100 * flag_edge:.0f})"]
     names = {"goals": "Goals", "points": "Points", "assists": "Assists"}
     for mk, title in names.items():
         g = cmp[cmp.market == mk]
@@ -121,11 +123,11 @@ def market_props_message(cmp: pd.DataFrame, top_n: int, flag_edge: float = 0.04)
             continue
         g = g.sort_values("edge", ascending=False).head(top_n)
         out.append(f"<b>{title}</b><pre>")
-        out.append(f"{'player':<16}{'tm':<4}{'line':<5}{'model':>6}{'kalshi':>7}{'edge':>6}")
+        out.append(f"{'player':<16}{'tm':<4}{'line':<5}{'model':>6}{'price':>6}{'edge':>6}")
         for r in g.itertuples():
             flag = " *" if r.edge >= flag_edge else ""
             out.append(f"{escape(str(r.player)[:15].ljust(16))}{r.team:<4}{'o' + format(r.line, 'g'):<5}"
-                       f"{_pct(r.model_prob):>6}{_pct(r.kalshi_prob):>7}{100 * r.edge:>+6.1f}{flag}")
+                       f"{_pct(r.model_prob):>6}{_am(r.kalshi_price):>6}{100 * r.edge:>+6.1f}{flag}")
         out.append("</pre>")
     out.append("Shots, saves, blocks and PP points have no free line, so they are in the CSV only.")
     return "\n".join(out)

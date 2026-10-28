@@ -109,7 +109,7 @@ def edge_bucket(edge: pd.Series) -> pd.Series:
 def grade_props(lines: pd.DataFrame, player_games: pd.DataFrame, flag_edge: float = 0.04) -> pd.DataFrame:
     """lines: posted Kalshi comparisons (player_id, game_id, market, line, model_prob, kalshi_prob, edge).
     A player who did not play is void (dropped), matching Kalshi's rules. Flagged = the over, when the model
-    is above Kalshi by at least flag_edge (the only props that get posted), priced at the Kalshi mid."""
+    is above the Kalshi buy price by at least flag_edge (only these get posted), priced at that buy price."""
     if lines.empty or player_games.empty:
         return pd.DataFrame()
     x = lines.sort_values("ts").drop_duplicates(["game_id", "player_id", "market", "line"], keep="last")

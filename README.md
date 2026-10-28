@@ -11,8 +11,8 @@ This is a personal projection and tracking tool, **not a sportsbook**.
 
 | Job | Schedule | Posts to Discord |
 |---|---|---|
-| `morning` | 15:43 daily | Game cards **only for games with a DraftKings line**, each with model vs DK (no-vig) vs Polymarket for ML, puck line and total; flagged disagreements; **props that have a Kalshi line**, model vs Kalshi; full CSV |
-| `pregame` | 22:11 and 01:23 daily | Only changes: a new starting goalie or a new disagreement. Also snapshots lines for closing-line value |
+| `morning` | 15:43 daily | Game cards **only for games with a Polymarket/Kalshi line**, each with model vs the best buy price (as American odds) for ML, puck line and total; flagged disagreements; **props where the model is above Kalshi's price**; full CSV |
+| `pregame` | 22:11 and 01:23 daily | Only changes: a new starting goalie, a new disagreement, or new Kalshi props that opened after the morning post. Also snapshots lines for closing-line value |
 | `nightly` | 09:17 daily | Results recap: model vs book accuracy, flagged-pick record, closing-line value, props vs Kalshi record |
 | `warmup` | every 15 min, 16:00-03:45 | Only when a game reaches warmups and something material changed: referees, scratches, confirmed goalies, re-run projection |
 | `weekly` | Mon 08:37 | Retrain (phase 1 + phase 2) + reverse-engineering report |
@@ -184,10 +184,8 @@ Nightly grading answers: when we disagree, whose probability was closer (log-los
 closing line move toward us (CLV)? What is the flat-bet record? Broken down by market, edge size
 and goalie-confirmation status.
 
-**Odds plan**: the free The Odds API plan (500 credits/month) covers game lines only (~9 credits/day).
-Props are projected but not compared to books. To compare props, upgrade and list markets in
-`odds.prop_markets` (e.g. `player_shots_on_goal`, `player_points`, `player_total_saves`).
-Historical odds are paid-only, so all book comparisons start from the day collection starts.
+**Lines**: all prices come from Polymarket and Kalshi (free, no API keys). Exchange history is not
+collected before the day collection starts, so all market comparisons start from then.
 
 ## Line reverse-engineering (`market/tells.py`)
 
@@ -208,25 +206,25 @@ the likeliest places for a real tell.
 
 1. **Discord**: in your server, open the channel's settings -> Integrations -> Webhooks -> New
    Webhook -> Copy Webhook URL.
-2. **The Odds API**: free key at https://the-odds-api.com (DraftKings game lines; about 270 of the
-   500 free monthly credits).
-3. **GitHub secrets** (Settings -> Secrets and variables -> Actions):
-   `DISCORD_WEBHOOK_URL`, `ODDS_API_KEY`. Optional: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` to
+2. **GitHub secret** (Settings -> Secrets and variables -> Actions): `DISCORD_WEBHOOK_URL`. That is
+   the only one; no odds API key is needed. Optional: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` to
    also post to Telegram.
-4. The `data` branch holds all stored data and trained models. If it is ever missing, run the
+3. The `data` branch holds all stored data and trained models. If it is ever missing, run the
    `bootstrap` workflow (type `rebuild`).
-5. Run `morning` once by hand with `dry_run` checked, then without it, to see the Discord output.
+4. Run `morning` once by hand with `dry_run` checked, then without it, to see the Discord output.
 
-## Line sources (all free)
+## Line sources (all free, no keys)
 
 | What | Source | Notes |
 |---|---|---|
-| Game lines (filter + main comparison) | DraftKings via The Odds API free plan | DraftKings' own site blocks cloud servers; games without a DK moneyline are not posted |
-| Second game price | Polymarket (no key) | Bid-ask mid; moneyline includes OT and shootout, same as the model |
-| Player props | Kalshi (no key) | Goals, points, assists (N+ = over N-0.5); bid-ask mid; markets wider than 10 cents are skipped |
+| Game lines | Polymarket + Kalshi | Moneyline (includes OT and shootout, same as the model), puck lines, totals. Games without either are not posted |
+| Player props | Kalshi | Goals, points, assists (N+ = over N-0.5). Posted only when the model is above the price |
 | Shots, saves, blocks, PP points | none free | Projections stay in the CSV only |
 
-Exchange mids carry no bookmaker margin, so they are compared directly; DK prices are de-vigged first.
+Every price is the **buy price** (the ask, what you would actually pay), converted from cents to
+American odds: 38c -> +163, 62c -> -163. Edges are measured against that price, so a flagged pick
+beats a price you can actually get. Markets wider than 10 cents between bid and ask are skipped.
+DraftKings is not used: its site blocks cloud servers, and the free odds API that carries it needs a key.
 
 ## Run locally
 

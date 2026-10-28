@@ -149,7 +149,7 @@ def run() -> None:
     done = db.read("warmups", partitions=[d.isoformat()])
     done_ids = set(done.game_id) if not done.empty else set()
     games = [g for g in games if int(g["id"]) not in done_ids]
-    shown = posted_games(d)        # only games posted this morning (they had a DraftKings line)
+    shown = posted_games(d)        # only games posted this morning (they had an exchange line)
     if shown is not None:
         games = [g for g in games if int(g["id"]) in shown]
     if not games:

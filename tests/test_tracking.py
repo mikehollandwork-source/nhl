@@ -37,15 +37,17 @@ def test_consensus_and_compare():
     cons = DG.consensus(fair)
     home = cons[(cons.market == "h2h") & (cons.selection == "home")].iloc[0]
     assert home.best_price == -145 and home.best_book == "fd"
-    dis = DG.compare(cons, lambda h, a, m, s, line: {"home": 0.65, "away": 0.35, "over": 0.45, "under": 0.55}[s])
+    dis = DG.compare(cons, lambda h, a, m, s, line: {"home": 0.65, "away": 0.35, "over": 0.43, "under": 0.57}[s])
     flagged = dis[dis.flagged]
     assert set(flagged.selection) == {"home", "under"}
     assert (flagged.edge > 0).all()
+    home = dis[dis.selection == "home"].iloc[0]
+    assert home.edge == pytest.approx(0.65 - 145 / 245)        # measured against the best price (-145)
 
 
 def test_grade_flow():
     dis = DG.compare(DG.consensus(DG.per_book_fair(_odds())),
-                     lambda h, a, m, s, line: {"home": 0.65, "away": 0.35, "over": 0.45, "under": 0.55}[s])
+                     lambda h, a, m, s, line: {"home": 0.65, "away": 0.35, "over": 0.43, "under": 0.57}[s])
     dis["game_date"] = "2026-10-28"
     dis["ts"] = "2026-10-28T15:00:00Z"
     results = pd.DataFrame([{"game_date": "2026-10-28", "home": "TOR", "away": "MTL", "home_score": 4, "away_score": 2}])

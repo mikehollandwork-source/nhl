@@ -2,8 +2,10 @@
 
 For each game / market / line / selection:
   book_prob   = median across books of that book's de-vigged probability (multiplicative)
-  best_price  = best American price on offer for that selection
-  edge        = model_prob - book_prob
+  best_price  = best American price on offer for that selection (on an exchange: the buy price)
+  price_prob  = probability implied by best_price (what you actually pay)
+  edge        = model_prob - price_prob  (so a flagged pick beats a price you can actually get)
+  fair_edge   = model_prob - book_prob
   ev          = model_prob * decimal(best_price) - 1
   flagged     = |edge| >= threshold for the market, and the flagged pick is the side with edge > 0
 Every row is stored (flagged or not) so performance can be measured by size of disagreement.
@@ -73,8 +75,10 @@ def compare(cons: pd.DataFrame, model_prob_fn) -> pd.DataFrame:
         p = model_prob_fn(r.home, r.away, r.market, r.selection, line)
         if p is None:
             continue
-        edge = p - r.book_prob
-        rows.append({**r._asdict(), "line": line, "model_prob": p, "edge": edge,
+        price_prob = 1.0 / r.best_dec
+        edge = p - price_prob
+        rows.append({**r._asdict(), "line": line, "model_prob": p, "edge": edge, "price_prob": price_prob,
+                     "fair_edge": p - r.book_prob,
                      "blended_prob": w * p + (1 - w) * r.book_prob,
                      "ev": p * r.best_dec - 1,
                      "flagged": bool(edge >= th.get(r.market, 0.04))})

@@ -72,7 +72,7 @@ def props_recap(season: int, day) -> str | None:
         better = "model" if s["model_logloss"] < s["kalshi_logloss"] else "Kalshi"
         return (f"<b>{title}</b> ({s['n']} lines)\nlog-loss model {s['model_logloss']:.4f} vs Kalshi "
                 f"{s['kalshi_logloss']:.4f} → {better} closer\nFlagged: {s['flagged']} · won {wr} · "
-                f"{s['flagged_units']:+.2f}u at Kalshi mid")
+                f"{s['flagged_units']:+.2f}u at Kalshi buy price")
 
     last = g[g.game_date == day.isoformat()]
     return "\n\n".join(["🎯 <b>Props vs Kalshi recap</b>", block("Last night", GR.summarize_props(last)),

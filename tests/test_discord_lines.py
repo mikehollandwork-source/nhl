@@ -5,10 +5,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from nhlmodel.ingest import kalshi, polymarket
+from nhlmodel.ingest import exchanges, kalshi, polymarket
+from nhlmodel.market.devig import cents_to_american
 from nhlmodel.publish import discord as DC
 from nhlmodel.publish import format as F
 from nhlmodel.publish import notify
+from nhlmodel.tracking import disagree as DG
 from nhlmodel.tracking import grade as GR
 
 FIX = Path(__file__).parent / "fixtures"
@@ -105,14 +107,14 @@ def test_kalshi_spread_filter():
 # ---- formatting, filter, grading ----
 
 def test_lines_block_and_props_message():
-    rows = [{"label": "ML EDM", "model": 0.55, "dk": 0.62, "dk_price": -188, "poly": 0.62, "edge": -0.07, "flag": False},
-            {"label": "ML CGY", "model": 0.45, "dk": 0.38, "dk_price": 155, "poly": None, "edge": 0.07, "flag": True}]
+    rows = [{"label": "ML EDM", "model": 0.55, "price": -170, "src": "PM", "edge": -0.08, "flag": False},
+            {"label": "ML CGY", "model": 0.45, "price": 163, "src": "KS", "edge": 0.07, "flag": True}]
     b = F.lines_block(rows)
-    assert "-188" in b and "+155" in b and "–" in b and b.count("*") == 1
+    assert "-170" in b and "+163" in b and "KS" in b and "-122" in b and b.count("*") == 1   # -122 = model fair odds for 55%
     cmp = pd.DataFrame({"player": ["Logan O'Connor"], "team": ["COL"], "market": ["goals"], "line": [0.5],
-                        "model_prob": [0.21], "kalshi_prob": [0.08], "edge": [0.13]})
+                        "model_prob": [0.21], "kalshi_prob": [0.09], "kalshi_price": [1011.0], "edge": [0.12]})
     md = DC.to_markdown(F.market_props_message(cmp, 15))
-    assert "Logan O'Connor" in md
+    assert "Logan O'Connor" in md and "+1011" in md
     assert "No Kalshi" in F.market_props_message(pd.DataFrame(), 15)
     under = cmp.assign(player="Leon Draisaitl", edge=-0.11)
     msg = F.market_props_message(pd.concat([cmp, under]), 15)
@@ -133,3 +135,41 @@ def test_grade_props():
     assert not gl.flagged and gl.units == 0.0          # model below Kalshi: never posted, never flagged
     s = GR.summarize_props(g)
     assert s["flagged"] == 1 and s["flagged_win_rate"] == 1.0
+
+
+# ---- cents -> American odds, Kalshi game markets, exchange odds frame ----
+
+def test_cents_to_american():
+    assert cents_to_american(0.38) == 163
+    assert cents_to_american(0.62) == -163
+    assert cents_to_american(0.50) == 100
+
+
+def test_kalshi_game_markets():
+    mk = json.loads((FIX / "kalshi_games.json").read_text())
+    df = kalshi.parse_game_markets(mk, D, [("EDM", "CGY"), ("COL", "NJD")])
+    assert set(df.home) == {"EDM", "COL"}                      # "NJ" in the ticker matched NJD
+    tot = df[(df.home == "EDM") & (df.market == "totals") & (df.line == 6.5)].set_index("selection")
+    assert tot.loc["over", "ask"] == pytest.approx(0.52) and tot.loc["under", "ask"] == pytest.approx(0.49)
+    sp = df[(df.home == "EDM") & (df.market == "spreads") & (df.line == -1.5)]
+    assert sp.selection.iloc[0] == "home" and sp.ask.iloc[0] == pytest.approx(0.42)   # "Edmonton wins by over 1.5"
+    opp = df[(df.home == "EDM") & (df.market == "spreads") & (df.selection == "away") & (df.line == 1.5)]
+    assert opp.ask.iloc[0] == pytest.approx(0.59)                                       # the "No" side = CGY +1.5
+    ml = kalshi.parse_game_markets(mk, date(2026, 11, 1), [("NYR", "EDM")])
+    assert set(ml.selection) == {"home", "away"} and set(ml.market) == {"h2h"}
+
+
+def test_exchange_odds_flow_into_consensus():
+    lines = pd.DataFrame([
+        {"home": "EDM", "away": "CGY", "market": "h2h", "selection": "home", "line": None, "ask": 0.63, "bid": 0.62},
+        {"home": "EDM", "away": "CGY", "market": "h2h", "selection": "away", "line": None, "ask": 0.38, "bid": 0.37},
+        {"home": "EDM", "away": "CGY", "market": "h2h", "selection": "away", "line": None, "ask": 0.40, "bid": 0.36}])
+    odds = exchanges.to_odds(lines, "kalshi", {("EDM", "CGY"): "2026-10-29T00:30:00Z"}, D, "open", "t")
+    assert len(odds) == 2                                       # best (lowest) ask kept per side
+    assert set(odds.price) == {-170.0, 163.0}
+    cons = DG.consensus(DG.per_book_fair(odds))
+    away = cons[cons.selection == "away"].iloc[0]
+    assert away.best_price == 163 and away.book_prob == pytest.approx(0.38 / 1.01, abs=0.002)   # American prices are rounded
+    dis = DG.compare(cons, lambda h, a, m, s, line: {"home": 0.55, "away": 0.45}[s])
+    a = dis[dis.selection == "away"].iloc[0]
+    assert a.edge == pytest.approx(0.45 - 100 / 263)            # vs the buy price, not the no-vig price

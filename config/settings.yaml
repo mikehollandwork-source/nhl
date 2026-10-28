@@ -20,16 +20,8 @@ ratings:
   goalie_prior_xg: 60.0            # K in w = N / (N + K), N = xG faced, for goalie shrinkage
   player_prior_toi_min: 300.0      # minutes of prior weight when shrinking player shares
 
-odds:
-  enabled: true
-  regions: us
-  game_markets: [h2h, spreads, totals]
-  # Free plan: keep empty. On a paid plan add e.g. player_shots_on_goal, player_points, player_total_saves
-  prop_markets: []
-  monthly_credit_alert: 400
-
 disagreement:
-  # Minimum |model - book| (probability points) to flag a disagreement
+  # Minimum model - (probability implied by the buy price), in probability points, to flag a pick
   thresholds:
     h2h: 0.03
     spreads: 0.04
@@ -52,12 +44,13 @@ props:
   team_sog_var: 0.029              # a team's saved-shot volume (shots on goal / goalie saves)
 
 lines:
-  # Free market lines used for posting (games: DraftKings via The Odds API + Polymarket; props: Kalshi).
-  # Only games with a DraftKings line and props with a Kalshi line are posted.
+  # All lines come from the exchanges, no API keys: games from Polymarket + Kalshi, props from Kalshi.
+  # Prices are BUY prices (the ask) converted to American odds. Only games with an exchange line and
+  # props where the model is above the Kalshi buy price are posted.
   polymarket: true
   kalshi: true
   max_spread: 0.10                 # skip exchange markets whose bid-ask spread is wider than this
-  prop_flag_edge: 0.04             # |model - Kalshi| that marks a prop with *
+  prop_flag_edge: 0.04             # model - Kalshi buy price % that marks a prop with *
 
 tells:
   min_games: 600                   # don't report reverse-engineering findings below this sample
