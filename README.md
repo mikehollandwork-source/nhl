@@ -105,14 +105,51 @@ zero on moneyline or totals, without the other getting worse. Results:
 `models/ablation_report.json` on the data branch.
 
 **Calibration finding (dispersion):**
-- Both the phase-1 and phase-2 models were under-confident on the held-out seasons: their
-  win-probability calibration slope was about 1.5, where 1.0 is perfect. Real gaps between teams
-  were bigger than the models said.
-- A single **dispersion factor**, fit on the validation season only, stretches the difference
-  between the two teams' simulated rates while keeping total scoring the same. Every market
-  (moneyline, puck line, totals, props) stays consistent.
+- On 2024-25 both models were under-confident: the calibration slope was about 1.5, where 1.0 is
+  perfect.
+- A "dispersion" stretch fitted on that season did not hold up on 2025-26, so it is off
+  (`--dispersion` re-tests it).
 
-ABLATION_RESULTS_PLACEHOLDER
+**Selection, choices made on 2024-25 only** (log-loss change vs the model before it; negative is
+better; ⚠ = the 90% interval excludes 0):
+
+| Candidate | Moneyline | Totals | Kept? |
+|---|---|---|---|
+| Special-teams base vs phase 1 | +0.0046 ⚠ worse | -0.0005 | structure kept (needed for PP props); see test |
+| Lineup, basic (unrated players = average) | -0.0010 | -0.0004 | no |
+| **Lineup, replacement level** | **-0.0022 ⚠** | -0.0003 | **yes** |
+| Lineup, full (+ finishing, + PP unit) | -0.0009 | -0.0005 | no |
+| Referees | +0.0009 | +0.0011 ⚠ worse | no |
+| Goalie detail | +0.0013 | -0.0001 | no |
+| Travel | +0.0013 | +0.0004 | no |
+| EDGE speed / zone time | +0.0006 | -0.0002 | no |
+| Shared pace factor | +0.0016 ⚠ worse | -0.0007 | no |
+| Dispersion stretch (fit 1.45-1.8 on 2024-25) | helped 2024-25, hurt 2025-26 | | no (did not transfer) |
+| Rolling totals-level correction | | -0.0003 | no |
+
+**Final test, untouched 2025-26 season** (1,382 games; model refit on 2021-25):
+
+| Model | Moneyline log-loss | Totals log-loss | Goals per game |
+|---|---|---|---|
+| Phase 1 | 0.6799 | 0.6829 | 6.22 |
+| **Phase 2 (special teams + lineup)** | **0.6762** | 0.6851 | 6.04 (actual 6.23) |
+
+- **Moneyline:** -0.0037 (90% interval -0.0062 to -0.0012), the clearest gain.
+- **Totals:** +0.0022, not significant. No version clearly beats a constant guess on totals.
+
+**Props backtest** (300 games of 2025-26, about 10,800 player-lines per market):
+- Every market beats the no-skill baseline.
+- Shots on goal: Brier 0.146 vs 0.171 at 2.5, 0.209 vs 0.244 at 1.5.
+- Points over 0.5: 0.205 vs 0.226.
+- Saves: 0.198 vs 0.209 at 28.5.
+- Measured player and team shot-volume variance fixed the thin high tails: saves over 28.5 predicted 28.2% vs 29.7% actual.
+
+**What did not help**, and why that is plausible:
+- **Referees:** they shift power-play counts, but only by a few hundredths of a goal.
+- **EDGE speed:** already reflected in shots and xG.
+- **Travel and goalie detail:** too small or too noisy at this sample size.
+
+They stay in the data store and are re-tested monthly by the `ablation` job.
 
 **Live additions:**
 - The morning cards list who is out, game-time decisions and PP1.

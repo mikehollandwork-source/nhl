@@ -241,5 +241,15 @@ def calibrate(gm: GameModelV2, rows: pd.DataFrame, games: pd.DataFrame, n_games:
         pp = np.mean([float((s.pp_count_h + s.pp_count_a).mean()) for s in
                       (simulate(gi, gm.constants, n=n_sims, rng=rng) for gi in inputs)])
         gm.constants.pen_scale *= target_pp / pp
-    gm.meta.update({"target_en": target_en, "sim_en": sim_en, "target_pp": target_pp, "sim_pp_before_last": pp})
+    # overall scoring level: simulated settlement totals vs actual totals on these (training) games
+    gids = [pairs[i][0].game_id for i in pick]
+    g = games.set_index("game_id").loc[[x for x in gids if x in set(games.game_id)]]
+    target_total = float((g.home_score + g.away_score).mean())
+    for _ in range(3):
+        rng = np.random.default_rng(8)
+        tot = np.mean([float((s.final_h + s.final_a).mean()) for s in
+                       (simulate(gi, gm.constants, n=n_sims, rng=rng) for gi in inputs)])
+        gm.constants.goal_scale *= (target_total / tot) ** 1.1
+    gm.meta.update({"target_en": target_en, "sim_en": sim_en, "target_pp": target_pp, "sim_pp_before_last": pp,
+                    "target_total": target_total, "sim_total_before_last": tot})
     return gm.meta

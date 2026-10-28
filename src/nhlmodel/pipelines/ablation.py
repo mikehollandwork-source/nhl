@@ -60,7 +60,7 @@ def sim_preds(inputs: dict[int, object], consts, n_sims: int, step: int) -> pd.D
 
 
 def fit_dispersion(inputs: dict, consts, games: pd.DataFrame, n_sims: int, step: int,
-                   grid=(1.0, 1.15, 1.3, 1.45, 1.6, 1.8)) -> tuple[float, dict]:
+                   grid=(1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.4)) -> tuple[float, dict]:
     """Choose the dispersion factor that minimizes moneyline log-loss on a held-out season."""
     from dataclasses import replace
     table = {}
@@ -99,7 +99,7 @@ def summary(d: pd.DataFrame, games: pd.DataFrame) -> dict:
             "pp_per_game": float(d.pp_per_game.mean())}
 
 
-def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None) -> dict:
+def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None, fit_disp: bool = False) -> dict:
     """Two stages, so the reported test numbers are not inflated by the choice of inputs:
       1. SELECT: fit on train_seasons[:-1], choose input groups greedily on train_seasons[-1].
       2. TEST:   refit on all train_seasons, evaluate phase 1, phase-2 base and the chosen model ONCE
@@ -149,8 +149,8 @@ def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None) ->
                     pace_var=pace)
         if st["scales"] is None:
             M2.calibrate(gm, st["fit_rows"], st["fit_games"])
-            st["scales"] = (gm.constants.pull_time_scale, gm.constants.pen_scale)
-        gm.constants.pull_time_scale, gm.constants.pen_scale = st["scales"]
+            st["scales"] = (gm.constants.pull_time_scale, gm.constants.pen_scale, gm.constants.goal_scale)
+        gm.constants.pull_time_scale, gm.constants.pen_scale, gm.constants.goal_scale = st["scales"]
         gm.constants.dispersion = k
         inputs = {gid: gm.game_input(hr, ar, gt) for gid, (hr, ar, gt) in st["pairs"].items()}
         if keep is not None:
@@ -200,8 +200,11 @@ def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None) ->
     # dispersion: both models are refit-free here; only the stretch factor changes
     keep2: dict = {}
     _, sp["final_k1"] = evaluate(sel, kept, final_pace, 1.0, keep=keep2)
-    k1, t1 = fit_dispersion(keep1["inputs"], keep1["consts"], sel["games"], max(1000, n_sims // 2), step)
-    k2, t2 = fit_dispersion(keep2["inputs"], keep2["consts"], sel["games"], max(1000, n_sims // 2), step)
+    if fit_disp:
+        k1, t1 = fit_dispersion(keep1["inputs"], keep1["consts"], sel["games"], max(1000, n_sims // 2), step)
+        k2, t2 = fit_dispersion(keep2["inputs"], keep2["consts"], sel["games"], max(1000, n_sims // 2), step)
+    else:
+        k1, t1, k2, t2 = 1.0, {}, 1.0, {}
     report["selection"]["dispersion"] = {"phase1": {"best": k1, "grid": t1}, "final": {"best": k2, "grid": t2}}
     report["final"] = {"groups": kept, "pace_var": final_pace, "dispersion": k2, "phase1_dispersion": k1}
     log.info("selected groups %s pace %s dispersion phase1 %.2f final %.2f", kept, final_pace, k1, k2)
@@ -219,7 +222,9 @@ def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None) ->
     log.info("test: %s", json.dumps(report["test"], default=float))
 
     if props_games > 0:
-        report["props"] = props_backtest(h, ex, gm_final, te["pairs"], props_games, n_sims, step)
+        gm_final.constants.sog_var = float(settings()["props"].get("team_sog_var", 0.0))
+        report["props"] = props_backtest(h, ex, gm_final, te["pairs"], props_games, n_sims, step,
+                                         player_var=float(settings()["props"].get("player_var", 0.0)))
 
     out = data_dir() / "models"
     out.mkdir(parents=True, exist_ok=True)
@@ -314,10 +319,12 @@ def main() -> None:
     ap.add_argument("--props-games", type=int, default=300)
     ap.add_argument("--groups", nargs="*", default=None,
                     help="skip group selection and use these groups (e.g. --groups lineup_repl)")
+    ap.add_argument("--dispersion", action="store_true",
+                    help="also fit a dispersion factor on the validation season (tested Oct 2026: did not transfer)")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    run(a.sims, a.props_games, a.groups)
+    run(a.sims, a.props_games, a.groups, a.dispersion)
 
 
 if __name__ == "__main__":

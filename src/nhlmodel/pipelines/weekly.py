@@ -5,9 +5,10 @@ python -m nhlmodel.pipelines.weekly
 
 from __future__ import annotations
 
+import json
 import logging
 
-from nhlmodel.config import season_for, today_local
+from nhlmodel.config import data_dir, season_for, today_local
 from nhlmodel.market import tells
 from nhlmodel.pipelines import train, train_v2
 from nhlmodel.pipelines.backfill import backfill_edge
@@ -22,7 +23,17 @@ def run() -> None:
     backfill_edge([season_for(today_local())])
     res = train.run("production")
     v2 = train_v2.run()
-    TG.send_message(f"🛠 <b>Phase-2 model</b> {v2['version']} · inputs on: {', '.join(v2['groups']) or 'base only'}")
+    msg = f"🛠 <b>Phase-2 model</b> {v2['version']} · inputs on: {', '.join(v2['groups']) or 'base only'}"
+    rep = data_dir() / "models" / "ablation_report.json"
+    if rep.exists():
+        t = json.loads(rep.read_text()).get("test", {})
+        v = t.get("variants", {})
+        if "phase1" in v and ("final_raw" in v or "final" in v):
+            f = v.get("final_raw", v.get("final"))
+            msg += (f"\nLast held-out test ({t.get('season')}): moneyline log-loss {f['ml_logloss']:.4f} "
+                    f"vs phase-1 {v['phase1']['ml_logloss']:.4f}; totals {f['tot_logloss']:.4f} "
+                    f"vs {v['phase1']['tot_logloss']:.4f}")
+    TG.send_message(msg)
     v = res["version"]
     m = res["game_model"]
     TG.send_message(

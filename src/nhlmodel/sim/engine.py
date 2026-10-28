@@ -50,7 +50,8 @@ class SimConstants:
     p_major: float = 0.0                  # share of power plays that are 5-minute majors
     pace_var: float = 0.0                 # variance of the shared per-game pace factor (0 = off)
     pen_scale: float = 1.0                # calibrated so simulated power plays per game match history
-    dispersion: float = 1.0               # stretches matchup differences (fit on a held-out season)
+    dispersion: float = 1.0               # stretches matchup differences (tested; 1.0 = off)
+    goal_scale: float = 1.0               # calibrated so simulated totals match training-season totals
     sog_var: float = 0.0                  # extra per-game variance of a team's SAVED shots (shots/saves
                                           # props); goals are untouched so win/total odds do not change
 
@@ -75,8 +76,9 @@ class GameInput:
 
 
 def stretch(g: GameInput, k: float) -> GameInput:
-    """Widen (k > 1) or narrow (k < 1) the gap between the two teams while keeping each pair's
-    geometric mean, so total scoring stays the same. Applied to every home/away rate pair.
+    """Widen (k > 1) or narrow (k < 1) the gap between the two teams while keeping the game's TOTAL
+    shots and TOTAL expected goals exactly the same (only the split between the teams changes).
+    Applied to even-strength and power-play shots/goals and to penalties.
 
     Fit on a held-out season: both the phase-1 and phase-2 models were under-confident
     (calibration slope ~1.5), i.e. real team differences were larger than the raw model said."""
@@ -84,17 +86,22 @@ def stretch(g: GameInput, k: float) -> GameInput:
         return g
     from dataclasses import replace
 
-    def pair(a: float, b: float) -> tuple[float, float]:
+    def split(a: float, b: float) -> tuple[float, float]:
         if a <= 0 or b <= 0:
             return a, b
-        m = (a * b) ** 0.5
-        return m * (a / m) ** k, m * (b / m) ** k
+        wa, wb = a ** k, b ** k
+        return (a + b) * wa / (wa + wb), (a + b) * wb / (wa + wb)
 
-    sog_h, sog_a = pair(g.sog_h, g.sog_a)
-    gp_h, gp_a = pair(g.gp_h, g.gp_a)
-    pp_h, pp_a = pair(g.pp_sog_h, g.pp_sog_a)
-    ppg_h, ppg_a = pair(g.pp_gp_h, g.pp_gp_a)
-    pen_h, pen_a = pair(g.pen_h, g.pen_a)
+    def shots_goals(sh: float, sa: float, gh: float, ga: float) -> tuple[float, float, float, float]:
+        if sh <= 0 or sa <= 0:
+            return sh, sa, gh, ga
+        lh, la = split(sh * gh, sa * ga)
+        sh2, sa2 = split(sh, sa)
+        return sh2, sa2, lh / sh2, la / sa2
+
+    sog_h, sog_a, gp_h, gp_a = shots_goals(g.sog_h, g.sog_a, g.gp_h, g.gp_a)
+    pp_h, pp_a, ppg_h, ppg_a = shots_goals(g.pp_sog_h, g.pp_sog_a, g.pp_gp_h, g.pp_gp_a)
+    pen_h, pen_a = split(g.pen_h, g.pen_a)
     return replace(g, sog_h=sog_h, sog_a=sog_a, gp_h=gp_h, gp_a=gp_a, pp_sog_h=pp_h, pp_sog_a=pp_a,
                    pp_gp_h=ppg_h, pp_gp_a=ppg_a, pen_h=pen_h, pen_a=pen_a)
 
@@ -135,6 +142,11 @@ def simulate(g: GameInput, c: SimConstants, n: int = 50_000, step: int = 10,
              rng: np.random.Generator | None = None) -> SimResult:
     rng = rng or np.random.default_rng()
     g = stretch(g, c.dispersion)
+    if c.goal_scale != 1.0:
+        from dataclasses import replace as _replace
+        gs = c.goal_scale
+        g = _replace(g, gp_h=g.gp_h * gs, gp_a=g.gp_a * gs, pp_gp_h=g.pp_gp_h * gs, pp_gp_a=g.pp_gp_a * gs,
+                     sh_gp_h=g.sh_gp_h * gs, sh_gp_a=g.sh_gp_a * gs)
     steps = REG_SECONDS // step
     k = step / 3600.0
     sm = np.asarray(c.sog_mult_by_lead)

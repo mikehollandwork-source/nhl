@@ -203,3 +203,15 @@ def test_rowwise_multinomial_and_volume_noise():
     b = simulate(gi, SimConstants(sog_var=0.03), n=20000, rng=np.random.default_rng(5))
     assert b.sog_h.var() > a.sog_h.var() * 1.2
     assert abs(b.goals_h.mean() - a.goals_h.mean()) < 0.05
+
+
+def test_stretch_keeps_totals():
+    from nhlmodel.sim.engine import stretch
+    gi = GameInput(sog_h=33, sog_a=27, gp_h=0.10, gp_a=0.085, pen_h=2.5, pen_a=3.5, pp_sog_h=52, pp_sog_a=46,
+                   pp_gp_h=0.16, pp_gp_a=0.14)
+    s = stretch(gi, 1.6)
+    assert s.sog_h + s.sog_a == pytest.approx(60)
+    assert s.sog_h * s.gp_h + s.sog_a * s.gp_a == pytest.approx(33 * 0.10 + 27 * 0.085)
+    assert s.pen_h + s.pen_a == pytest.approx(6.0)
+    assert (s.sog_h * s.gp_h) / (s.sog_a * s.gp_a) > (33 * 0.10) / (27 * 0.085)   # gap widened
+    assert stretch(gi, 1.0) is gi
