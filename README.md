@@ -75,7 +75,7 @@ to pass a gate.
 - Penalties from play-by-play.
 - Referees, linesmen, scratches and head coaches for every game.
 - Venue time zones.
-- NHL EDGE tracking: skating speed bursts, zone time, shot speed (season level).
+- NHL EDGE tracking: skating speed bursts, zone time, shot speed (season level, per team and per skater).
 - DailyFaceoff lines, PP/PK units, injuries and game-time decisions (live only).
 
 **New model structure** (`sim/model.py`, `sim/engine.py`):
@@ -94,6 +94,7 @@ to pass a gate.
 | goalie_detail | Goalie results split by shot danger, rebound control, workload, back-to-backs |
 | travel | Time-zone changes, games in the last 7 days, long road trips |
 | edge | Prior-season EDGE skating speed, offensive-zone time, hard shots |
+| edge_player | Per-skater prior-season EDGE (top speed, bursts, zone time), tonight's lineup vs the usual one |
 | pace | Shared per-game pace factor (small positive correlation between the teams' scoring) |
 
 **Selection protocol**, so the reported test result is not inflated by picking inputs:
@@ -125,6 +126,7 @@ better; ⚠ = the 90% interval excludes 0):
 | EDGE speed / zone time | +0.0006 | -0.0002 | no |
 | Faceoffs (overall, by zone, PP), zone starts, giveaways, takeaways | +0.0003 | -0.0006 | no |
 | Hits | +0.0006 | -0.0002 | no |
+| Per-player EDGE speed / bursts / zone time (lineup vs usual) | +0.0007 | +0.0000 | no |
 | Shared pace factor | +0.0016 ⚠ worse | -0.0007 | no |
 | Dispersion stretch (fit 1.45-1.8 on 2024-25) | helped 2024-25, hurt 2025-26 | | no (did not transfer) |
 | Rolling totals-level correction | | -0.0003 | no |
@@ -154,7 +156,7 @@ same protocol.
 
 **What did not help**, and why that is plausible:
 - **Referees:** they shift power-play counts, but only by a few hundredths of a goal.
-- **EDGE speed:** already reflected in shots and xG.
+- **EDGE speed:** already reflected in shots and xG, at team level and for lineup changes.
 - **Travel and goalie detail:** too small or too noisy at this sample size.
 - **Faceoffs, giveaways, takeaways, hits:** these show up later in shots and chances, which the model
   already measures directly; hits are also recorded inconsistently from rink to rink.
