@@ -105,22 +105,26 @@ def lines_block(rows: list[dict]) -> str:
 
 
 def market_props_message(cmp: pd.DataFrame, top_n: int, flag_edge: float = 0.04) -> str:
-    """Props that have a Kalshi line: the biggest model-vs-Kalshi gaps per market (both directions)."""
+    """Props that have a Kalshi line AND where the model is above Kalshi (over side only), biggest edge first.
+    Props where the model is below the Kalshi price are not posted."""
     if cmp is None or cmp.empty:
         return "🎯 <b>Player props</b>\nNo Kalshi prop lines for tonight's games yet, so no props posted."
-    out = ["🎯 <b>Player props vs Kalshi</b> (Kalshi = bid/ask mid; edge = model − Kalshi, * = |edge| ≥ "
-           f"{100 * flag_edge:.0f})"]
+    cmp = cmp[cmp.edge > 0]
+    if cmp.empty:
+        return "🎯 <b>Player props</b>\nNo props where our projection is above Kalshi's price tonight."
+    out = ["🎯 <b>Player props: model above Kalshi</b> (overs only; Kalshi = bid/ask mid; edge = model − Kalshi, "
+           f"* = edge ≥ {100 * flag_edge:.0f})"]
     names = {"goals": "Goals", "points": "Points", "assists": "Assists"}
     for mk, title in names.items():
         g = cmp[cmp.market == mk]
         if g.empty:
             continue
-        g = g.reindex(g.edge.abs().sort_values(ascending=False).index).head(top_n)
+        g = g.sort_values("edge", ascending=False).head(top_n)
         out.append(f"<b>{title}</b><pre>")
         out.append(f"{'player':<16}{'tm':<4}{'line':<5}{'model':>6}{'kalshi':>7}{'edge':>6}")
         for r in g.itertuples():
-            flag = " *" if abs(r.edge) >= flag_edge else ""
-            out.append(f"{escape(str(r.player)[:15]):<16}{r.team:<4}{'o' + format(r.line, 'g'):<5}"
+            flag = " *" if r.edge >= flag_edge else ""
+            out.append(f"{escape(str(r.player)[:15].ljust(16))}{r.team:<4}{'o' + format(r.line, 'g'):<5}"
                        f"{_pct(r.model_prob):>6}{_pct(r.kalshi_prob):>7}{100 * r.edge:>+6.1f}{flag}")
         out.append("</pre>")
     out.append("Shots, saves, blocks and PP points have no free line, so they are in the CSV only.")

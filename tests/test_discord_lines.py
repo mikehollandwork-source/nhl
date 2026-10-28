@@ -114,6 +114,10 @@ def test_lines_block_and_props_message():
     md = DC.to_markdown(F.market_props_message(cmp, 15))
     assert "Logan O'Connor" in md
     assert "No Kalshi" in F.market_props_message(pd.DataFrame(), 15)
+    under = cmp.assign(player="Leon Draisaitl", edge=-0.11)
+    msg = F.market_props_message(pd.concat([cmp, under]), 15)
+    assert "Draisaitl" not in msg                       # model below Kalshi -> not posted
+    assert "No props" in F.market_props_message(under, 15)
 
 
 def test_grade_props():
@@ -126,6 +130,6 @@ def test_grade_props():
     pts = g[g.market == "points"].iloc[0]
     assert pts.outcome == 1.0 and pts.won and pts.units == pytest.approx(1.0)     # over at 0.50 -> +1u
     gl = g[g.market == "goals"].iloc[0]
-    assert gl.won and gl.units == pytest.approx(0.35 / 0.65)                        # under at 0.65
+    assert not gl.flagged and gl.units == 0.0          # model below Kalshi: never posted, never flagged
     s = GR.summarize_props(g)
-    assert s["flagged"] == 2 and s["flagged_win_rate"] == 1.0
+    assert s["flagged"] == 1 and s["flagged_win_rate"] == 1.0
