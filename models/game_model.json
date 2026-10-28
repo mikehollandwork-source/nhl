@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "v20261027",
+    "version": "v20261028",
     "n_rows": 14360,
     "seasons": [
       20212022,
@@ -64,6 +64,12 @@
     "so_home_win": 0.5051124744376279,
     "playoff_ot_mult": 1.0,
     "lg_goals_per60": 2.785650270902796,
-    "pull_time_scale": 1.236572265625
+    "pull_time_scale": 1.236572265625,
+    "p_major": 0.0,
+    "pace_var": 0.0,
+    "pen_scale": 1.0,
+    "dispersion": 1.0,
+    "goal_scale": 1.0,
+    "sog_var": 0.0
   }
 }

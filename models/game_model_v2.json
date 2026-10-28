@@ -1,0 +1,163 @@
+{
+  "meta": {
+    "version": "v2-20261028",
+    "groups": [
+      "lineup_repl"
+    ],
+    "n_rows": 14054,
+    "seasons": [
+      20212022,
+      20222023,
+      20232024,
+      20242025,
+      20252026,
+      20262027
+    ],
+    "target_en": 0.36852367688022286,
+    "sim_en": 0.36494374999999984,
+    "target_pp": 5.639675537213605,
+    "sim_pp_before_last": 5.63600625,
+    "target_total": 6.25,
+    "sim_total_before_last": 6.23298125,
+    "pp_units": {
+      "pp1_min": 3.2899199160153523,
+      "pp2_min": 1.552542429114667
+    }
+  },
+  "features": {
+    "ev_sog": [
+      "off_ev_sog",
+      "opp_def_ev_sog",
+      "is_home",
+      "b2b",
+      "opp_b2b",
+      "three_in_four",
+      "opp_three_in_four",
+      "lu_off_sog",
+      "lu_opp_def_sog"
+    ],
+    "ev_goal": [
+      "off_ev_q",
+      "opp_def_ev_q",
+      "finishing",
+      "opp_goalie",
+      "is_home",
+      "b2b",
+      "opp_b2b",
+      "lu_off_xg",
+      "lu_opp_def_xg"
+    ],
+    "pp_sog": [
+      "off_pp_sog",
+      "opp_def_sh_sog",
+      "is_home"
+    ],
+    "pp_goal": [
+      "off_pp_q",
+      "opp_def_sh_q",
+      "opp_goalie"
+    ],
+    "sh_sog": [
+      "off_sh_sog"
+    ],
+    "sh_goal": [
+      "opp_goalie"
+    ],
+    "pen": [
+      "pen_taken",
+      "opp_pen_drawn",
+      "is_home"
+    ]
+  },
+  "coefs": {
+    "ev_sog": {
+      "intercept": -0.021696203852039842,
+      "off_ev_sog": 0.9393545061776721,
+      "opp_def_ev_sog": 0.8740719599494877,
+      "is_home": 0.029552989070377178,
+      "b2b": -0.026048635724726467,
+      "opp_b2b": 0.03385970043044583,
+      "three_in_four": -0.00520489589118561,
+      "opp_three_in_four": 0.0060183629278767825,
+      "lu_off_sog": 0.22001832220513506,
+      "lu_opp_def_sog": 0.15222719493068418
+    },
+    "pp_sog": {
+      "intercept": -0.032483998922660455,
+      "off_pp_sog": 0.9090047473594246,
+      "opp_def_sh_sog": 0.9977771540644105,
+      "is_home": 0.042728174139747506
+    },
+    "sh_sog": {
+      "intercept": -0.025023666595381928,
+      "off_sh_sog": 0.8567552811779663
+    },
+    "pen": {
+      "intercept": 0.023564617361390917,
+      "pen_taken": 0.7561625891247818,
+      "opp_pen_drawn": 0.5968924318596542,
+      "is_home": -0.07716509018498267
+    },
+    "ev_goal": {
+      "intercept": -0.000912309646408209,
+      "off_ev_q": 0.4932643519764307,
+      "opp_def_ev_q": 0.5430638573408194,
+      "finishing": -0.01239575573360906,
+      "opp_goalie": 0.3534535727075323,
+      "is_home": 0.012622784951175072,
+      "b2b": -0.02442030277208675,
+      "opp_b2b": 0.020876387785866996,
+      "lu_off_xg": 0.13416095689412036,
+      "lu_opp_def_xg": 0.14639917981074535
+    },
+    "pp_goal": {
+      "intercept": 0.009074150133623652,
+      "off_pp_q": 0.6538680097487024,
+      "opp_def_sh_q": 0.036877519951192414,
+      "opp_goalie": 0.3314305850670042
+    },
+    "sh_goal": {
+      "intercept": 0.12662866240577142,
+      "opp_goalie": 0.08770437900433908
+    }
+  },
+  "constants": {
+    "sog_mult_by_lead": [
+      1.0551430924910166,
+      1.0419680164773926,
+      1.00762657168075,
+      0.961260959221799,
+      0.9226282843253824
+    ],
+    "gp_mult_by_lead": [
+      0.9458226442971202,
+      0.9956153387723837,
+      0.9600653604304676,
+      1.0561942775715125,
+      1.102522640387079
+    ],
+    "pull_remaining_s": {
+      "1": 105.0,
+      "2": 174.0
+    },
+    "pull_prob": {
+      "1": 0.7945347630577655,
+      "2": 0.5382595648912228
+    },
+    "en_goal_rate": 0.006968798059289479,
+    "ea_sog_mult": 2.4409478470082697,
+    "ea_gp_mult": 1.165073327396705,
+    "ot_goal_rate": 0.003506804169392835,
+    "ot_sog_rate": 0.019877659961158596,
+    "so_home_win": 0.5051124744376279,
+    "playoff_ot_mult": 1.0,
+    "lg_goals_per60": 2.785650270902796,
+    "pull_time_scale": 1.236572265625,
+    "p_major": 0.06615024734440311,
+    "pace_var": 0.0,
+    "pen_scale": 1.0848490000861293,
+    "dispersion": 1.0,
+    "goal_scale": 1.0160256169237885,
+    "sog_var": 0.029
+  }
+}
