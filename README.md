@@ -123,6 +123,8 @@ better; ⚠ = the 90% interval excludes 0):
 | Goalie detail | +0.0013 | -0.0001 | no |
 | Travel | +0.0013 | +0.0004 | no |
 | EDGE speed / zone time | +0.0006 | -0.0002 | no |
+| Faceoffs (overall, by zone, PP), zone starts, giveaways, takeaways | +0.0003 | -0.0006 | no |
+| Hits | +0.0006 | -0.0002 | no |
 | Shared pace factor | +0.0016 ⚠ worse | -0.0007 | no |
 | Dispersion stretch (fit 1.45-1.8 on 2024-25) | helped 2024-25, hurt 2025-26 | | no (did not transfer) |
 | Rolling totals-level correction | | -0.0003 | no |
@@ -144,10 +146,18 @@ better; ⚠ = the 90% interval excludes 0):
 - Saves: 0.198 vs 0.209 at 28.5.
 - Measured player and team shot-volume variance fixed the thin high tails: saves over 28.5 predicted 28.2% vs 29.7% actual.
 
+The faceoff, giveaway/takeaway, zone-start and hit stats are the official NHL team stats, rebuilt
+game by game from play-by-play so the backtest uses only earlier games. They match the NHL's own
+team pages: faceoff % exactly for all 32 teams in 2025-26; hits and takeaways exactly; giveaways
+within 3%. Faceoffs and hits were tested after the main run, on top of the lineup model, with the
+same protocol.
+
 **What did not help**, and why that is plausible:
 - **Referees:** they shift power-play counts, but only by a few hundredths of a goal.
 - **EDGE speed:** already reflected in shots and xG.
 - **Travel and goalie detail:** too small or too noisy at this sample size.
+- **Faceoffs, giveaways, takeaways, hits:** these show up later in shots and chances, which the model
+  already measures directly; hits are also recorded inconsistently from rink to rink.
 
 They stay in the data store and are re-tested monthly by the `ablation` job.
 

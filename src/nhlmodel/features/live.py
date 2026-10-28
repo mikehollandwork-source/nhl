@@ -17,6 +17,7 @@ import pandas as pd
 from nhlmodel.config import settings
 from nhlmodel.features import assemble as A
 from nhlmodel.features import lineup as LU
+from nhlmodel.features import macro as MC
 from nhlmodel.features import officials as OF
 from nhlmodel.features import players as PL
 from nhlmodel.features import special_teams as ST
@@ -41,6 +42,7 @@ class LiveContext:
     lineup_hist0: pd.DataFrame            # same, with unrated players as league average ("basic" variant)
     edge: pd.DataFrame
     ref_latest: dict = field(default_factory=dict)
+    macro_next: pd.DataFrame | None = None
 
 
 def build_context(h: History, ex: A.Extras, rapm: pd.DataFrame, d: date) -> LiveContext:
@@ -63,8 +65,12 @@ def build_context(h: History, ex: A.Extras, rapm: pd.DataFrame, d: date) -> Live
     if not ex.officials.empty:
         pp = tg.groupby("game_id").pk_starts.sum().rename("pp_total").reset_index()
         _, ref_latest = OF.ref_factors(ex.officials, pp, h.games)
+    macro_next = None
+    if ex.team_events is not None and not ex.team_events.empty:
+        mr = MC.macro_ratings(ex.team_events)
+        macro_next = mr[mr.game_id == -1]
     return LiveContext(h, ex, lgs, sr[sr.game_id == -1], gd[gd.game_id == -1], rapm, form_latest, positions,
-                       LU.replacement(rapm), lu_hist, lu_hist0, A.edge_features(ex.edge), ref_latest)
+                       LU.replacement(rapm), lu_hist, lu_hist0, A.edge_features(ex.edge), ref_latest, macro_next)
 
 
 def _strength(ctx: LiveContext, team_id: int, prefix: str) -> dict:
@@ -154,6 +160,14 @@ def team_row(ctx: LiveContext, team_id: int, opp_id: int, is_home: bool, d: date
     otv = travel_today(ctx, opp_id, d, venue_offset, not is_home)
     row.update(tv)
     row.update({"opp_tz_big": otv["tz_big"], "opp_games_last7": otv["games_last7"]})
+    if ctx.macro_next is not None:
+        me_m = ctx.macro_next[ctx.macro_next.team_id == team_id]
+        op_m = ctx.macro_next[ctx.macro_next.team_id == opp_id]
+        for c in ctx.macro_next.columns:
+            if c.startswith(("m_", "lgm_")) and len(me_m):
+                row[c] = float(me_m[c].iloc[0])
+            if c.startswith("m_") and len(op_m):
+                row["o" + c] = float(op_m[c].iloc[0])
     e = ctx.edge[(ctx.edge.team_id == team_id) & (ctx.edge.season == season)]
     oe = ctx.edge[(ctx.edge.team_id == opp_id) & (ctx.edge.season == season)]
     for c in ("edge_bursts", "edge_oz", "edge_shots90"):

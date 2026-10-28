@@ -46,6 +46,10 @@ GROUPS = {
     "travel": {"ev_sog": ["tz_big", "opp_tz_big", "games_last7", "opp_games_last7", "road_trip_long"],
                "ev_goal": ["tz_big", "opp_tz_big"]},
     "edge": {"ev_sog": ["edge_bursts", "edge_oz", "opp_edge_bursts"], "ev_goal": ["edge_shots90"]},
+    # official NHL team stats, rebuilt per game from play-by-play (features/macro.py)
+    "macro": {"ev_sog": ["fo_diff", "zs_diff", "take_rel", "give_rel", "opp_give_rel"],
+              "pp_sog": ["fo_pp"], "ev_goal": ["opp_give_rel"]},
+    "physical": {"ev_sog": ["hits_rel", "opp_hits_rel"]},
 }
 # component -> (target count, exposure column or None, parent component whose prediction is the offset)
 TARGETS = {
@@ -112,6 +116,21 @@ def design(rows: pd.DataFrame) -> pd.DataFrame:
     X["road_trip_long"] = (r.get("road_trip", pd.Series(0, index=r.index)).fillna(0) >= 4).astype(float)
     for c in ("edge_bursts", "edge_oz", "opp_edge_bursts", "edge_shots90"):
         X[c] = r.get(c, pd.Series(0.0, index=r.index)).fillna(0.0).astype(float)
+    def col(name, default):
+        return r[name] if name in r else pd.Series(default, index=r.index)
+
+    def logit(p):
+        p = np.clip(p.astype(float), 0.01, 0.99)
+        return np.log(p / (1 - p))
+
+    X["fo_diff"] = logit(col("m_fo_pct", 0.5)) - logit(col("om_fo_pct", 0.5))
+    X["zs_diff"] = col("m_oz_start_pct", 0.5) - col("om_oz_start_pct", 0.5)
+    X["take_rel"] = np.log(col("m_takeaways60", 1.0) / col("lgm_takeaways60", 1.0))
+    X["give_rel"] = np.log(col("m_giveaways60", 1.0) / col("lgm_giveaways60", 1.0))
+    X["opp_give_rel"] = np.log(col("om_giveaways60", 1.0) / col("lgm_giveaways60", 1.0))
+    X["fo_pp"] = logit(col("m_fo_pp_pct", 0.5)) - logit(col("lgm_fo_pp_pct", 0.5))
+    X["hits_rel"] = np.log(col("m_hits60", 1.0) / col("lgm_hits60", 1.0))
+    X["opp_hits_rel"] = np.log(col("om_hits60", 1.0) / col("lgm_hits60", 1.0))
     return X.replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
 

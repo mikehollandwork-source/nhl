@@ -151,6 +151,7 @@ def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
     player_team = {r["playerId"]: r["teamId"] for r in pbp.get("rosterSpots", [])}
     shots = []
     penalties: list[dict] = []
+    tev = {t: {k: 0 for k in TEAM_EVENT_COLS} for t in (home_id, away_id)}
     states: dict[tuple, list[float]] = {}
     goals_by_team = {home_id: 0, away_id: 0}
     reg_goals = {home_id: 0, away_id: 0}
@@ -249,6 +250,9 @@ def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
                         if pid:
                             pp_points[pid] = pp_points.get(pid, 0) + 1
 
+        if etype in ("faceoff", "hit", "giveaway", "takeaway"):
+            _count_team_event(tev, etype, det, sit, home_id, away_id)
+
         if etype == "penalty":
             # Verified: the event owner is the team that committed the penalty.
             ag, ask, hsk, hg = sit
@@ -310,7 +314,50 @@ def parse_game(pbp: dict, box: dict | None) -> dict[str, pd.DataFrame]:
 
     pg, gg = _parse_box(box, gid, season, gtype, gdate, pp_points) if box else (pd.DataFrame(), pd.DataFrame())
     return {"games": games, "shots": pd.DataFrame(shots), "player_games": pg, "goalie_games": gg,
-            "states": pd.DataFrame(st_rows), "penalties": pd.DataFrame(penalties)}
+            "states": pd.DataFrame(st_rows), "penalties": pd.DataFrame(penalties),
+            "team_events": pd.DataFrame([{"game_id": gid, "season": season, "game_date": gdate, "team_id": t,
+                                          "opp_id": away_id if t == home_id else home_id, **c}
+                                         for t, c in tev.items()])}
+
+
+TEAM_EVENT_COLS = ("fo_wins", "fo_total", "fo_oz_wins", "fo_oz", "fo_dz_wins", "fo_dz", "fo_pp_wins", "fo_pp",
+                   "oz_starts_5v5", "dz_starts_5v5", "hits", "hits_against", "giveaways", "takeaways")
+
+
+def _count_team_event(tev: dict, etype: str, det: dict, sit: tuple, home_id: int, away_id: int) -> None:
+    """Faceoffs / hits / giveaways / takeaways. Verified: the event owner is the winning (faceoff) or
+    acting team; a faceoff's zoneCode is from the winner's side."""
+    owner = det.get("eventOwnerTeamId")
+    if owner not in tev:
+        return
+    other = away_id if owner == home_id else home_id
+    if etype == "hit":
+        tev[owner]["hits"] += 1
+        tev[other]["hits_against"] += 1
+        return
+    if etype in ("giveaway", "takeaway"):
+        tev[owner][etype + "s"] += 1
+        return
+    ag, ask, hsk, hg = sit
+    zone_w = det.get("zoneCode")
+    zone_l = {"O": "D", "D": "O"}.get(zone_w, zone_w)
+    for team, won, zone in ((owner, 1, zone_w), (other, 0, zone_l)):
+        c = tev[team]
+        own, opp = (hsk, ask) if team == home_id else (ask, hsk)
+        c["fo_total"] += 1
+        c["fo_wins"] += won
+        if zone == "O":
+            c["fo_oz"] += 1
+            c["fo_oz_wins"] += won
+        elif zone == "D":
+            c["fo_dz"] += 1
+            c["fo_dz_wins"] += won
+        if own > opp:
+            c["fo_pp"] += 1
+            c["fo_pp_wins"] += won
+        if own == opp == 5 and ag == 1 and hg == 1:
+            c["oz_starts_5v5"] += int(zone == "O")
+            c["dz_starts_5v5"] += int(zone == "D")
 
 
 def _offset_hours(s: str | None) -> float | None:

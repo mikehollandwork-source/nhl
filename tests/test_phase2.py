@@ -215,3 +215,19 @@ def test_stretch_keeps_totals():
     assert s.pen_h + s.pen_a == pytest.approx(6.0)
     assert (s.sog_h * s.gp_h) / (s.sog_a * s.gp_a) > (33 * 0.10) / (27 * 0.085)   # gap widened
     assert stretch(gi, 1.0) is gi
+
+
+def test_macro_ratings_point_in_time_and_bounds():
+    from nhlmodel.features import macro as MC
+    base = {"season": 20252026, "opp_id": 2, "fo_oz_wins": 5, "fo_oz": 10, "fo_dz_wins": 5, "fo_dz": 10,
+            "fo_pp_wins": 2, "fo_pp": 4, "oz_starts_5v5": 8, "dz_starts_5v5": 8, "hits": 20, "hits_against": 20,
+            "giveaways": 8, "takeaways": 6}
+    te = pd.DataFrame([{**base, "game_id": i, "team_id": 1, "game_date": date(2025, 10, i), "fo_wins": 30, "fo_total": 60}
+                       for i in range(1, 6)])
+    a = MC.macro_ratings(te)
+    te2 = te.copy()
+    te2.loc[te2.game_id == 3, "fo_wins"] = 60
+    b = MC.macro_ratings(te2)
+    r = lambda df, g: float(df.loc[df.game_id == g, "m_fo_pct"].iloc[0])  # noqa: E731
+    assert r(a, 3) == r(b, 3) and r(b, 4) > r(a, 4)
+    assert a.m_oz_start_pct.between(0, 1).all() and a.m_fo_pct.between(0, 1).all()

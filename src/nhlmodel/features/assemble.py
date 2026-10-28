@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from nhlmodel.features import lineup as LU
+from nhlmodel.features import macro as MC
 from nhlmodel.features import officials as OF
 from nhlmodel.features import players as PL
 from nhlmodel.features import rapm as RP
@@ -34,13 +35,14 @@ class Extras:
     player_toi: pd.DataFrame
     officials: pd.DataFrame
     edge: pd.DataFrame
+    team_events: pd.DataFrame | None = None
 
 
 def load_extras(seasons: list[int] | None = None) -> Extras:
     parts = [str(s) for s in seasons] if seasons else None
     return Extras(db.read("stints", partitions=parts), db.read("penalties", partitions=parts),
                   db.read("player_toi", partitions=parts), db.read("officials", partitions=parts),
-                  db.read("edge_team"))
+                  db.read("edge_team"), db.read("team_events", partitions=parts))
 
 
 def rapm_by_season(h: History, ex: Extras, seasons: list[int]) -> tuple[dict[int, pd.DataFrame], pd.DataFrame]:
@@ -130,6 +132,9 @@ def assemble(h: History, ex: Extras, rapm: dict[int, pd.DataFrame] | None = None
         rows = rows.merge(ef, on=["team_id", "season"], how="left")
         rows = rows.merge(ef[["team_id", "season", "edge_bursts"]].rename(
             columns={"team_id": "opp_id", "edge_bursts": "opp_edge_bursts"}), on=["opp_id", "season"], how="left")
+
+    if ex.team_events is not None and not ex.team_events.empty:
+        rows = MC.attach(rows, MC.macro_ratings(ex.team_events))
 
     rows = rows.merge(games[["game_id", "game_type"]], on="game_id", how="left")
     num = rows.select_dtypes(include=[np.number]).columns

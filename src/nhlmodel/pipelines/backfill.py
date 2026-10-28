@@ -17,7 +17,7 @@ from nhlmodel.store import db
 
 log = logging.getLogger("backfill")
 TABLES = ("games", "shots", "player_games", "goalie_games", "states", "penalties", "stints", "player_toi",
-          "officials", "scratches")
+          "officials", "scratches", "team_events")
 FINAL_STATE_ID = 7  # stats API gameStateId for final
 
 
@@ -25,7 +25,8 @@ KEYS = {"games": ["game_id"], "shots": ["game_id", "event_id"],
         "player_games": ["game_id", "player_id"], "goalie_games": ["game_id", "player_id"],
         "states": ["game_id", "period_bucket", "score_diff_home", "home_goalie", "away_goalie", "sk_diff_home"],
         "penalties": ["game_id", "event_id"], "stints": ["game_id", "period", "t0"],
-        "player_toi": ["game_id", "player_id"], "officials": ["game_id"], "scratches": ["game_id", "player_id"]}
+        "player_toi": ["game_id", "player_id"], "officials": ["game_id"], "scratches": ["game_id", "player_id"],
+        "team_events": ["game_id", "team_id"]}
 
 
 def parse_extras(pbp: dict, box: dict, rail: dict | None, shifts_raw: dict | None) -> dict[str, pd.DataFrame]:
@@ -126,6 +127,32 @@ def refresh_extras(season: int, days: int = 21) -> int:
                 db.append(t, df, f"{season}_{d}", key=KEYS[t])
         n += 1
     log.info("season %s: refreshed shift data for %d of %d games", season, n, len(todo))
+    return n
+
+
+def backfill_team_events(seasons: list[int], chunk: int = 400) -> int:
+    """Faceoffs / hits / giveaways / takeaways for stored games that lack them (re-reads play-by-play only)."""
+    from nhlmodel.ingest.http import fetch_many
+    n = 0
+    for season in seasons:
+        games = db.read("games", partitions=[str(season)])
+        if games.empty:
+            continue
+        have = db.read("team_events", partitions=[str(season)])
+        done = set(have.game_id) if not have.empty else set()
+        todo = [g for g in games.game_id if g not in done]
+        frames = [have] if not have.empty else []
+        for i in range(0, len(todo), chunk):
+            urls = {g: f"{nhl_api.WEB}/gamecenter/{g}/play-by-play" for g in todo[i:i + chunk]}
+            got = fetch_many(list(urls.values()))
+            for u in urls.values():
+                if got.get(u):
+                    frames.append(nhl_api.parse_game(got[u], None)["team_events"])
+            log.info("season %s team events: %d/%d", season, min(i + chunk, len(todo)), len(todo))
+        if frames:
+            df = pd.concat(frames, ignore_index=True).drop_duplicates(["game_id", "team_id"], keep="last")
+            db.write("team_events", df, str(season))
+            n += len(todo)
     return n
 
 

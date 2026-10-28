@@ -99,7 +99,8 @@ def summary(d: pd.DataFrame, games: pd.DataFrame) -> dict:
             "pp_per_game": float(d.pp_per_game.mean())}
 
 
-def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None, fit_disp: bool = False) -> dict:
+def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None, fit_disp: bool = False,
+        candidates: list[str] | None = None) -> dict:
     """Two stages, so the reported test numbers are not inflated by the choice of inputs:
       1. SELECT: fit on train_seasons[:-1], choose input groups greedily on train_seasons[-1].
       2. TEST:   refit on all train_seasons, evaluate phase 1, phase-2 base and the chosen model ONCE
@@ -172,8 +173,9 @@ def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None, fi
         report["selection"]["variants"]["base"] = summary(sp["base"], h.games)
         decide("base", "phase1", sp, report["selection"])
         incumbent, kept, pace_on = "base", [], False
-        candidates = [["lineup_basic", "lineup_repl", "lineup"], ["refs"], ["goalie_detail"], ["travel"], ["edge"], ["pace"]]
-        for options in candidates:
+        options_list = [["lineup_basic", "lineup_repl", "lineup"], ["refs"], ["goalie_detail"], ["travel"], ["edge"],
+                        ["macro"], ["physical"], ["pace"]]
+        for options in options_list:
             passing = []
             for grp in options:
                 name = "+" + grp
@@ -197,6 +199,19 @@ def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None, fi
         final_pace = pace_var if pace_on else 0.0
     else:
         kept, final_pace = list(fixed_groups), 0.0
+        if candidates:
+            name0 = "+".join(["base", *kept])
+            _, sp[name0] = evaluate(sel, kept, 0.0)
+            report["selection"]["variants"][name0] = summary(sp[name0], h.games)
+            incumbent = name0
+            for grp in candidates:
+                name = "+" + grp
+                _, sp[name] = evaluate(sel, [*kept, grp], 0.0)
+                report["selection"]["variants"][name] = summary(sp[name], h.games)
+                decide(name, incumbent, sp, report["selection"])
+                if report["selection"]["decisions"][-1]["kept"]:
+                    kept.append(grp)
+                    incumbent = name
     # dispersion: both models are refit-free here; only the stretch factor changes
     keep2: dict = {}
     _, sp["final_k1"] = evaluate(sel, kept, final_pace, 1.0, keep=keep2)
@@ -321,10 +336,12 @@ def main() -> None:
                     help="skip group selection and use these groups (e.g. --groups lineup_repl)")
     ap.add_argument("--dispersion", action="store_true",
                     help="also fit a dispersion factor on the validation season (tested Oct 2026: did not transfer)")
+    ap.add_argument("--candidates", nargs="*", default=None,
+                    help="with --groups: test only these extra groups on top (e.g. --candidates macro physical)")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    run(a.sims, a.props_games, a.groups, a.dispersion)
+    run(a.sims, a.props_games, a.groups, a.dispersion, a.candidates)
 
 
 if __name__ == "__main__":
