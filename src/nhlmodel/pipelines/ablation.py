@@ -174,7 +174,7 @@ def run(n_sims: int, props_games: int, fixed_groups: list[str] | None = None, fi
         decide("base", "phase1", sp, report["selection"])
         incumbent, kept, pace_on = "base", [], False
         options_list = [["lineup_basic", "lineup_repl", "lineup"], ["refs"], ["goalie_detail"], ["travel"], ["edge"],
-                        ["macro"], ["physical"], ["pace"]]
+                        ["macro"], ["physical"], ["edge_player"], ["pace"]]
         for options in options_list:
             passing = []
             for grp in options:

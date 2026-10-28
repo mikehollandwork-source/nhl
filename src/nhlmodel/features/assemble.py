@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from nhlmodel.features import edge_player as EP
 from nhlmodel.features import lineup as LU
 from nhlmodel.features import macro as MC
 from nhlmodel.features import officials as OF
@@ -36,13 +37,14 @@ class Extras:
     officials: pd.DataFrame
     edge: pd.DataFrame
     team_events: pd.DataFrame | None = None
+    edge_skater: pd.DataFrame | None = None
 
 
 def load_extras(seasons: list[int] | None = None) -> Extras:
     parts = [str(s) for s in seasons] if seasons else None
     return Extras(db.read("stints", partitions=parts), db.read("penalties", partitions=parts),
                   db.read("player_toi", partitions=parts), db.read("officials", partitions=parts),
-                  db.read("edge_team"), db.read("team_events", partitions=parts))
+                  db.read("edge_team"), db.read("team_events", partitions=parts), db.read("edge_skater"))
 
 
 def rapm_by_season(h: History, ex: Extras, seasons: list[int]) -> tuple[dict[int, pd.DataFrame], pd.DataFrame]:
@@ -126,6 +128,13 @@ def assemble(h: History, ex: Extras, rapm: dict[int, pd.DataFrame] | None = None
             rows = rows.merge(lu0[["game_id", "team_id", "d_def_xg", "d_def_sog"]].rename(
                 columns={"team_id": "opp_id", "d_def_xg": "o_d0_def_xg", "d_def_sog": "o_d0_def_sog"}),
                 on=["game_id", "opp_id"], how="left")
+        if ex.edge_skater is not None and not ex.edge_skater.empty:
+            el = EP.lineup_history(form, EP.prior_season_z(ex.edge_skater), seasons)
+            if not el.empty:
+                dcols = [f"d_{c}" for c in EP.COLS]
+                rows = rows.merge(el[["game_id", "team_id", *dcols]], on=["game_id", "team_id"], how="left")
+                rows = rows.merge(el[["game_id", "team_id", *dcols]].rename(
+                    columns={"team_id": "opp_id", **{c: "o_" + c for c in dcols}}), on=["game_id", "opp_id"], how="left")
 
     ef = edge_features(ex.edge)
     if not ef.empty:

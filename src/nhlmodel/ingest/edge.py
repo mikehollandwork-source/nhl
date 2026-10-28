@@ -45,3 +45,37 @@ def fetch_seasons(team_ids: list[int], seasons: list[int]) -> pd.DataFrame:
     got = fetch_many(list(urls.values()), concurrency=6)
     rows = [parse_team(got[u], t, s) for (t, s), u in urls.items() if got.get(u)]
     return pd.DataFrame([r for r in rows if r])
+
+
+# ---- per-player (skater) season summaries ----
+# Verified fields (Oct 2026): player.gamesPlayed (for the requested season), skatingSpeed.speedMax,
+# skatingSpeed.burstsOver20, totalDistanceSkated, topShotSpeed, zoneTimeDetails.offensiveZoneEvPctg.
+SKATER_URL = "https://api-web.nhle.com/v1/edge/skater-detail/{player}/{season}/2"
+MIN_GP = 10
+
+
+def parse_skater(d: dict, player_id: int, season: int) -> dict | None:
+    try:
+        gp = (d.get("player") or {}).get("gamesPlayed") or 0
+        if gp < MIN_GP:
+            return None
+        sk, z = d.get("skatingSpeed", {}), d.get("zoneTimeDetails", {})
+        return {
+            "player_id": player_id, "season": season, "gp": gp,
+            "speed_max": sk["speedMax"]["imperial"],
+            "bursts20_pg": sk["burstsOver20"]["value"] / gp,
+            "distance_pg": d["totalDistanceSkated"]["imperial"] / gp,
+            "top_shot_speed": (d.get("topShotSpeed") or {}).get("imperial"),
+            "oz_ev_pct": z.get("offensiveZoneEvPctg"),
+        }
+    except (KeyError, TypeError) as e:
+        log.warning("EDGE parse failed player %s season %s: %s", player_id, season, e)
+        return None
+
+
+def fetch_skaters(pairs: list[tuple[int, int]]) -> pd.DataFrame:
+    """pairs: (player_id, season)."""
+    urls = {(p, s): SKATER_URL.format(player=p, season=s) for p, s in pairs}
+    got = fetch_many(list(urls.values()), concurrency=6)
+    rows = [parse_skater(got[u], p, s) for (p, s), u in urls.items() if got.get(u)]
+    return pd.DataFrame([r for r in rows if r])

@@ -50,6 +50,8 @@ GROUPS = {
     "macro": {"ev_sog": ["fo_diff", "zs_diff", "take_rel", "give_rel", "opp_give_rel"],
               "pp_sog": ["fo_pp"], "ev_goal": ["opp_give_rel"]},
     "physical": {"ev_sog": ["hits_rel", "opp_hits_rel"]},
+    # per-player NHL EDGE (prior season), tonight's lineup vs the team's typical one (features/edge_player.py)
+    "edge_player": {"ev_sog": ["ep_speed", "ep_bursts", "ep_oz", "ep_opp_speed"], "ev_goal": ["ep_oz"]},
 }
 # component -> (target count, exposure column or None, parent component whose prediction is the offset)
 TARGETS = {
@@ -131,6 +133,9 @@ def design(rows: pd.DataFrame) -> pd.DataFrame:
     X["fo_pp"] = logit(col("m_fo_pp_pct", 0.5)) - logit(col("lgm_fo_pp_pct", 0.5))
     X["hits_rel"] = np.log(col("m_hits60", 1.0) / col("lgm_hits60", 1.0))
     X["opp_hits_rel"] = np.log(col("om_hits60", 1.0) / col("lgm_hits60", 1.0))
+    for name in ("speed", "bursts", "oz"):
+        X[f"ep_{name}"] = col(f"d_e_{name}", 0.0).astype(float)
+    X["ep_opp_speed"] = col("o_d_e_speed", 0.0).astype(float)
     return X.replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
 

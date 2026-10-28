@@ -169,6 +169,30 @@ def backfill_edge(seasons: list[int]) -> int:
         old = old[~old.season.isin(df.season.unique())]
         df = pd.concat([old, df], ignore_index=True)
     db.write("edge_team", df, "all")
+    backfill_edge_skaters(seasons)
+    return len(df)
+
+
+def backfill_edge_skaters(seasons: list[int]) -> int:
+    """EDGE per-skater season summaries for every skater who played in the given seasons."""
+    from nhlmodel.ingest import edge
+    pg = db.read("player_games", partitions=[str(s) for s in seasons])
+    if pg.empty:
+        return 0
+    if "season" not in pg:
+        g = db.read("games", partitions=[str(s) for s in seasons])[["game_id", "season"]]
+        pg = pg.merge(g, on="game_id")
+    pg = pg[pg.position != "G"]
+    pairs = sorted({(int(p), int(s)) for p, s in zip(pg.player_id, pg.season, strict=True)})
+    log.info("EDGE skaters: %d player-seasons", len(pairs))
+    df = edge.fetch_skaters(pairs)
+    if df.empty:
+        return 0
+    old = db.read("edge_skater")
+    if not old.empty:
+        old = old[~old.season.isin(df.season.unique())]
+        df = pd.concat([old, df], ignore_index=True)
+    db.write("edge_skater", df, "all")
     return len(df)
 
 
@@ -177,7 +201,7 @@ def main() -> None:
     ap.add_argument("--seasons", nargs="*", type=int)
     ap.add_argument("--current", action="store_true", help="update the current season only")
     ap.add_argument("--all", action="store_true", help="train + test + current seasons from settings")
-    ap.add_argument("--edge", action="store_true", help="also refresh NHL EDGE team summaries")
+    ap.add_argument("--edge", action="store_true", help="also refresh NHL EDGE team and skater summaries")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
