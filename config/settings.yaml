@@ -51,6 +51,8 @@ lines:
   kalshi: true
   max_spread: 0.10                 # skip exchange markets whose bid-ask spread is wider than this
   prop_flag_edge: 0.04             # model - Kalshi buy price % that marks a prop with *
+  min_prop_price: 0.12             # don't post props cheaper than this (longer than +733): small model errors look like big edges there
+  one_per_player: true             # post at most one prop per player (the biggest edge)
 
 tells:
   min_games: 600                   # don't report reverse-engineering findings below this sample
