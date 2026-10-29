@@ -9,7 +9,7 @@ on:
         description: "Slate date YYYY-MM-DD (blank = today, US/Eastern)"
         required: false
       dry_run:
-        description: "Print messages instead of posting to Telegram"
+        description: "Print messages instead of posting to Discord"
         type: boolean
         default: false
 
