@@ -156,6 +156,7 @@ def project(d: date, games: list[dict], lineup_fallback, resolve_goalie, rest_fl
             tables.append(P.goalie_table(saves, goalie[0], goalie[1], abbrev, lines_cfg["saves"]))
         if tables:
             props = pd.concat(tables, ignore_index=True).assign(game_id=int(g["id"]), home=home, away=away)
+            props = P.recalibrate(props, settings()["props"].get("recal"))
 
         notes = [f"{home} " + n for n in hnotes] + [f"{away} " + n for n in anotes]
         if hsrc != "DailyFaceoff" or asrc != "DailyFaceoff":

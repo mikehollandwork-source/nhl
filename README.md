@@ -149,6 +149,21 @@ better; ⚠ = the 90% interval excludes 0):
 - Saves: 0.198 vs 0.209 at 28.5.
 - Measured player and team shot-volume variance fixed the thin high tails: saves over 28.5 predicted 28.2% vs 29.7% actual.
 
+**Props calibration** (`pipelines/props_calibration.py`, Oct 2026). Player rates were pulled too hard toward
+the position average, so stars were under-predicted and depth players over-predicted. Chosen on 400
+games of 2024-25, tested once on 400 games of 2025-26 (goals, points, assists and shots lines):
+
+| Settings | Test log-loss | Stars: points over 0.5 (pred / actual) | Others (pred / actual) |
+|---|---|---|---|
+| Old: EV prior 300 min, PP 60, half-life 30 games | 0.3423 | 55.2% / 63.7% | 32.4% / 31.0% |
+| **New: EV prior 75 min, PP 30, half-life 60 games** | **0.3416** | 57.0% / 63.7% | 31.9% / 31.0% |
+
+- Change −0.0007, 90% interval −0.0010 to −0.0004: kept.
+- An extra per-market logit recalibration did not help on the test season, so it is off.
+- Stars ("star" = 0.85+ points per game) are still about 7 points under-predicted, so props on them
+  will often show the model below the market. Props are only posted when the model is above the
+  price, so this mostly means fewer star props get posted, not worse ones.
+
 The faceoff, giveaway/takeaway, zone-start and hit stats are the official NHL team stats, rebuilt
 game by game from play-by-play so the backtest uses only earlier games. They match the NHL's own
 team pages: faceoff % exactly for all 32 teams in 2025-26; hits and takeaways exactly; giveaways

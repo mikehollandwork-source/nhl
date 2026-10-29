@@ -349,6 +349,24 @@ def kalshi_props(props: pd.DataFrame, d: date) -> pd.DataFrame:
     return m
 
 
+def select_props(kl: pd.DataFrame, skip_players: set | None = None) -> pd.DataFrame:
+    """Mark the props to post (column `posted`): model above the Kalshi buy price, price at least
+    lines.min_prop_price (no cheap longshots), at most one line per player (the biggest edge), and the
+    props.top_n biggest edges per market (what the message shows). Players in skip_players (already
+    posted today) are skipped."""
+    if kl is None or kl.empty:
+        return kl
+    cfg = settings().get("lines", {})
+    ok = (kl.edge > 0) & (kl.kalshi_prob >= cfg.get("min_prop_price", 0.12))
+    if skip_players:
+        ok &= ~kl.player_id.isin(skip_players)
+    cand = kl[ok].sort_values("edge", ascending=False)
+    if cfg.get("one_per_player", True):
+        cand = cand.drop_duplicates("player_id", keep="first")
+    cand = cand.groupby("market", group_keys=False).head(settings()["props"].get("top_n", 15))
+    return kl.assign(posted=kl.index.isin(cand.index))
+
+
 SRC = {"polymarket": "PM", "kalshi": "KS"}
 
 
@@ -437,7 +455,7 @@ def morning(d: date) -> None:
 
     tables = [r.props for r in runs if r.props is not None]
     props = pd.concat(tables, ignore_index=True) if tables else pd.DataFrame()
-    kl = kalshi_props(props, d) if not props.empty else pd.DataFrame()
+    kl = select_props(kalshi_props(props, d)) if not props.empty else pd.DataFrame()
     csv_path, props = write_csv(runs, proj, d, "morning", cons, kl)
     if not props.empty:
         db.append("prop_projections", props.assign(run_id=run_id, game_date=d.isoformat(),
@@ -446,7 +464,8 @@ def morning(d: date) -> None:
         db.append("prop_lines", kl.assign(ts=ts, run_id=run_id, game_date=d.isoformat(), model_version=gm.version),
                   d.isoformat())
     top_n = settings()["props"].get("top_n", settings()["props"].get("telegram_top_n", 15))
-    PUB.send_message(F.market_props_message(kl, top_n, settings().get("lines", {}).get("prop_flag_edge", 0.04)))
+    shown = kl[kl.posted] if not kl.empty else kl
+    PUB.send_message(F.market_props_message(shown, top_n, settings().get("lines", {}).get("prop_flag_edge", 0.04)))
     PUB.send_document(csv_path, caption=f"All projections {d.isoformat()} (games + every player prop line, "
                                         f"with the Polymarket/Kalshi buy price where there is one)")
 
@@ -504,18 +523,22 @@ def new_props(runs: list[GameRun], d: date, run_id: str, version: str) -> None:
     if kl.empty:
         return
     old = db.read("prop_lines", partitions=[d.isoformat()])
+    done = set()
     if not old.empty:
         seen = set(zip(old.player_id, old.market, old.line, strict=True))
         kl = kl[[(p, m, ln) not in seen for p, m, ln in zip(kl.player_id, kl.market, kl.line, strict=True)]]
+        if "posted" in old:
+            done = set(old[old.posted.fillna(False).astype(bool)].player_id)
     if kl.empty:
         return
+    kl = select_props(kl, done)
     ts = datetime.now(UTC).isoformat(timespec="seconds")
     db.append("prop_lines", kl.assign(ts=ts, run_id=run_id, game_date=d.isoformat(), model_version=version),
               d.isoformat())
     flag = settings().get("lines", {}).get("prop_flag_edge", 0.04)
-    if (kl.edge > 0).any():
+    if kl.posted.any():
         top_n = settings()["props"].get("top_n", 15)
-        PUB.send_message(F.market_props_message(kl, top_n, flag).replace("Player props", "New player props", 1))
+        PUB.send_message(F.market_props_message(kl[kl.posted], top_n, flag).replace("Player props", "New player props", 1))
 
 
 def _slate_rows(runs: list[GameRun], d: date, run_type: str, run_id: str) -> pd.DataFrame:

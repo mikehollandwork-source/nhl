@@ -136,9 +136,17 @@ def player_state_events(shots: pd.DataFrame) -> pd.DataFrame:
     return wide.reset_index()
 
 
-def player_state_rates(pg: pd.DataFrame, events: pd.DataFrame, player_toi: pd.DataFrame, asof: date,
-                       player_ids: list[int]) -> pd.DataFrame:
-    """Shrunk per-minute rates by state + projected minutes by state + block rate, before `asof`."""
+def rate_params() -> dict:
+    """Shrinkage / recency settings for player rates (settings.props.rates, falling back to the defaults)."""
+    base = {"ev_prior": STATE_PRIOR_MIN["ev"], "pp_prior": STATE_PRIOR_MIN["pp"], "sh_prior": STATE_PRIOR_MIN["sh"],
+            "halflife": GAME_HALFLIFE, "finishing_prior": FINISHING_PRIOR_XG}
+    base.update({k: float(v) for k, v in (settings().get("props", {}).get("rates") or {}).items() if k in base})
+    return base
+
+
+def state_history(pg: pd.DataFrame, events: pd.DataFrame, player_toi: pd.DataFrame, asof: date,
+                  player_ids: list[int]) -> tuple[pd.DataFrame, dict]:
+    """History before `asof` for the given players, plus position-group prior rates (last 365 days, everyone)."""
     d = pd.to_datetime(pg.game_date).dt.date
     hist = pg[d < asof][["game_id", "game_date", "player_id", "position", "toi", "blocks"]]
     hist = hist.merge(player_toi[["game_id", "player_id", "toi_5v5_s", "toi_evo_s", "toi_pp_s", "toi_sh_s"]],
@@ -162,19 +170,25 @@ def player_state_rates(pg: pd.DataFrame, events: pd.DataFrame, player_toi: pd.Da
             for c in STATE_STATS:
                 prior[(grp, st, c)] = x[f"{st}_{c}"].sum() / mins
         prior[(grp, "blk")] = x.blocks.sum() / max(x.toi.sum(), 1.0)
+    mine = hist[hist.player_id.isin(player_ids)].sort_values("game_date")
+    return mine, prior
 
+
+def rates_from_history(hist: pd.DataFrame, prior: dict, player_ids: list[int], params: dict | None = None) -> pd.DataFrame:
+    prm = params or rate_params()
+    priors = {"ev": prm["ev_prior"], "pp": prm["pp_prior"], "sh": prm["sh_prior"]}
     rows = []
-    hist = hist.sort_values("game_date")
+    groups = {pid: h for pid, h in hist.groupby("player_id")}
     for pid in player_ids:
-        h = hist[hist.player_id == pid]
+        h = groups.get(pid, hist.iloc[0:0])
         grp = pos_group(h.position.iloc[-1]) if len(h) else "F"
         rec = {"player_id": pid, "grp": grp, "n_games": int(len(h))}
         kk = np.arange(len(h))[::-1]
-        w = 0.5 ** (kk / GAME_HALFLIFE)
+        w = 0.5 ** (kk / prm["halflife"])
         wt = 0.5 ** (kk / TOI_HALFLIFE)
         for st in STATES:
             mins = h[f"{st}_min"].to_numpy()
-            P = STATE_PRIOR_MIN[st]
+            P = priors[st]
             for c in STATE_STATS:
                 rec[f"r_{st}_{c}"] = ((w * h[f"{st}_{c}"].to_numpy()).sum() + prior.get((grp, st, c), 0) * P) / (
                     (w * mins).sum() + P)
@@ -183,12 +197,20 @@ def player_state_rates(pg: pd.DataFrame, events: pd.DataFrame, player_toi: pd.Da
                 {"ev": 11.0 if grp == "F" else 15.0, "pp": 1.0, "sh": 0.5}[st]
         g_sum = (w * (h.ev_goals + h.pp_goals + h.sh_goals).to_numpy()).sum()
         x_sum = (w * (h.ev_ixg + h.pp_ixg + h.sh_ixg).to_numpy()).sum()
-        rec["finishing"] = (g_sum + FINISHING_PRIOR_XG) / (x_sum + FINISHING_PRIOR_XG)
+        fp = prm["finishing_prior"]
+        rec["finishing"] = (g_sum + fp) / (x_sum + fp)
         rec["r_blk"] = ((w * h.blocks.to_numpy()).sum() + prior.get((grp, "blk"), 0) * 300) / (
             (w * h.toi.to_numpy()).sum() + 300)
         rec["min_all"] = float(h.toi.tail(10).mean()) if len(h) else rec["min_ev"] + rec["min_pp"] + rec["min_sh"]
         rows.append(rec)
     return pd.DataFrame(rows)
+
+
+def player_state_rates(pg: pd.DataFrame, events: pd.DataFrame, player_toi: pd.DataFrame, asof: date,
+                       player_ids: list[int], params: dict | None = None) -> pd.DataFrame:
+    """Shrunk per-minute rates by state + projected minutes by state + block rate, before `asof`."""
+    hist, prior = state_history(pg, events, player_toi, asof, player_ids)
+    return rates_from_history(hist, prior, player_ids, params)
 
 
 def state_weights(rates: pd.DataFrame) -> pd.DataFrame:

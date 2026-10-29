@@ -220,3 +220,17 @@ def team_player_sims_v2(sim: SimResult, side: str, tp: TeamPropsV2, rng: np.rand
     out["points"] = out["goals"] + out["assists"]
     out["first_scorer"] = first
     return out
+
+
+def recalibrate(table: pd.DataFrame, ab: dict | None) -> pd.DataFrame:
+    """Per-market logit recalibration p' = sigmoid(a + b * logit p) (settings.props.recal, fitted by
+    pipelines/props_calibration.py). anytime_goal uses the goals coefficients. No-op when ab is empty."""
+    if not ab or table is None or table.empty:
+        return table
+    t = table.copy()
+    mk = t.market.replace({"anytime_goal": "goals"})
+    a = mk.map(lambda m: ab.get(m, (0.0, 1.0))[0]).astype(float).to_numpy()
+    b = mk.map(lambda m: ab.get(m, (0.0, 1.0))[1]).astype(float).to_numpy()
+    p = np.clip(t.p_over.to_numpy(dtype=float), 1e-4, 1 - 1e-4)
+    t["p_over"] = 1 / (1 + np.exp(-(a + b * np.log(p / (1 - p)))))
+    return t

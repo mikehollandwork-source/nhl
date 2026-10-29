@@ -173,3 +173,24 @@ def test_exchange_odds_flow_into_consensus():
     dis = DG.compare(cons, lambda h, a, m, s, line: {"home": 0.55, "away": 0.45}[s])
     a = dis[dis.selection == "away"].iloc[0]
     assert a.edge == pytest.approx(0.45 - 100 / 263)            # vs the buy price, not the no-vig price
+
+
+def test_select_props_filters():
+    from nhlmodel.pipelines.daily import select_props
+    kl = pd.DataFrame({"player_id": [1, 1, 1, 2, 3], "market": ["points", "points", "assists", "goals", "points"],
+                       "line": [0.5, 1.5, 0.5, 0.5, 0.5],
+                       "kalshi_prob": [0.40, 0.15, 0.30, 0.08, 0.50], "edge": [0.05, 0.09, 0.02, 0.10, -0.02]})
+    s = select_props(kl)
+    posted = s[s.posted]
+    assert list(posted.player_id) == [1]                 # one line per player; 2 too cheap; 3 below price
+    assert posted.line.iloc[0] == 1.5                    # the biggest edge for player 1
+    assert select_props(kl, {1})[lambda x: x.posted].empty
+
+
+def test_grade_uses_posted_flag():
+    lines = pd.DataFrame({"ts": ["t"] * 2, "game_date": ["2026-10-28"] * 2, "game_id": [9, 9], "player_id": [1, 1],
+                          "market": ["points", "goals"], "line": [0.5, 0.5], "model_prob": [0.7, 0.4],
+                          "kalshi_prob": [0.5, 0.2], "edge": [0.2, 0.2], "posted": [True, False]})
+    pg = pd.DataFrame({"game_id": [9], "player_id": [1], "goals": [0], "assists": [1], "points": [1]})
+    g = GR.grade_props(lines, pg)
+    assert g.flagged.tolist() == [True, False]          # the goals line had an edge but was not posted

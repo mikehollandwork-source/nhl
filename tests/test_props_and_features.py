@@ -78,3 +78,14 @@ def test_telegram_chunking_keeps_pre_balanced():
     for p in parts:
         assert p.count("<pre>") == p.count("</pre>")
         assert len(p) <= 1100
+
+
+def test_recalibrate_identity_and_stretch():
+    import pandas as pd
+
+    from nhlmodel.sim import props as P
+    t = pd.DataFrame({"market": ["points", "anytime_goal", "saves"], "p_over": [0.3, 0.2, 0.6]})
+    assert np.allclose(P.recalibrate(t, {"points": (0.0, 1.0)}).p_over, t.p_over)       # a=0, b=1: unchanged
+    s = P.recalibrate(t, {"points": (0.0, 2.0), "goals": (0.0, 2.0)})
+    assert s.p_over.iloc[0] < 0.3 and s.p_over.iloc[1] < 0.2 and s.p_over.iloc[2] == 0.6  # stretched; saves untouched
+    assert P.recalibrate(t, None) is t

@@ -123,7 +123,9 @@ def grade_props(lines: pd.DataFrame, player_games: pd.DataFrame, flag_edge: floa
     for col, name in (("model_prob", "model_ll"), ("kalshi_prob", "kalshi_ll")):
         p = x[col].clip(eps, 1 - eps)
         x[name] = -(x.outcome * np.log(p) + (1 - x.outcome) * np.log(1 - p))
-    x["flagged"] = x.edge >= flag_edge
+    # flagged = what was actually posted; older rows without the column fall back to the edge rule
+    rule = x.edge >= flag_edge
+    x["flagged"] = x.posted.fillna(rule).astype(bool) if "posted" in x else rule
     over = pd.Series(True, index=x.index)
     price = np.where(over, x.kalshi_prob, 1 - x.kalshi_prob)
     won = np.where(over, x.outcome == 1, x.outcome == 0)
