@@ -1,0 +1,19 @@
+name: Notify failure
+description: Post a short failure notice with the run link to Discord (and Telegram if configured).
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        MSG="⚠️ NHL job '${GITHUB_WORKFLOW}' failed: ${RUN_URL}"
+        if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+          jq -n --arg c "$MSG" '{content: $c, allowed_mentions: {parse: []}}' |
+            curl -sS -X POST -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK_URL" > /dev/null || true
+        fi
+        if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MSG}" > /dev/null || true
+        fi

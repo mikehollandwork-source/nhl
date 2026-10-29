@@ -1,0 +1,78 @@
+# All tunable knobs live here. Secrets come from environment variables, never this file.
+
+timezone: America/New_York        # "today" for the slate is computed in this zone
+
+history:
+  # Seasons used to train xG and fit game constants. The newest full season is held out for testing.
+  train_seasons: [20212022, 20222023, 20232024, 20242025]
+  test_season: 20252026
+  current_season: 20262027
+
+sim:
+  n_sims: 50000
+  step_seconds: 10                 # time-step size for the regulation simulation
+  seed: 7
+
+ratings:
+  ewm_halflife_games: 20           # recency weighting for team rates
+  prior_games: 12                  # strength of the pull toward league average
+  carryover: 0.6                   # how much of last season's rating carries into a new season
+  goalie_prior_xg: 60.0            # K in w = N / (N + K), N = xG faced, for goalie shrinkage
+  player_prior_toi_min: 300.0      # minutes of prior weight when shrinking player shares
+
+disagreement:
+  # Minimum model - (probability implied by the buy price), in probability points, to flag a pick
+  thresholds:
+    h2h: 0.03
+    spreads: 0.04
+    totals: 0.04
+    props: 0.05
+  blend_model_weight: 0.3          # only used for the separate "blended" column; never for flags
+
+props:
+  lines:
+    sog: [0.5, 1.5, 2.5, 3.5, 4.5]
+    goals: [0.5, 1.5]
+    assists: [0.5, 1.5]
+    points: [0.5, 1.5, 2.5]
+    ppp: [0.5]
+    blocks: [0.5, 1.5, 2.5]
+    saves: [20.5, 22.5, 24.5, 26.5, 28.5, 30.5, 32.5]
+  top_n: 15                        # props posted per market (full list goes in the CSV)
+  # Extra game-to-game variance measured from 2022-25 box scores (beyond the simulation's own):
+  player_var: 0.03                 # a player's share of his team's shots ("hot night")
+  team_sog_var: 0.029              # a team's saved-shot volume (shots on goal / goalie saves)
+
+lines:
+  # All lines come from the exchanges, no API keys: games from Polymarket + Kalshi, props from Kalshi.
+  # Prices are BUY prices (the ask) converted to American odds. Only games with an exchange line and
+  # props where the model is above the Kalshi buy price are posted.
+  polymarket: true
+  kalshi: true
+  max_spread: 0.10                 # skip exchange markets whose bid-ask spread is wider than this
+  prop_flag_edge: 0.04             # model - Kalshi buy price % that marks a prop with *
+
+tells:
+  min_games: 600                   # don't report reverse-engineering findings below this sample
+  fdr_alpha: 0.10                  # Benjamini-Hochberg false discovery rate
+
+model:
+  # 2 = phase-2 model (special teams, penalties, optional input groups); 1 = phase-1 fallback.
+  version: 2
+  # Input groups switched on. Set from the latest ablation (models/ablation_report.json) when
+  # `groups_from_ablation` is true; otherwise this list is used as written.
+  groups_from_ablation: true
+  groups: []
+  pace_var: 0.0
+  dispersion: 1.0      # stretch factor for matchup differences; taken from the ablation when available
+
+lineups:
+  # Probability a "game-time decision" player dresses. Not measurable from history (DailyFaceoff
+  # keeps no archive), so this is an assumption: 0.5. Used only in the lineup-strength adjustment.
+  gtd_play_prob: 0.5
+  # Typical power-play minutes for PP1 / PP2 skaters are measured from shift data at training time
+  # and stored in models/game_model_v2.json (meta.pp_units).
+
+warmup:
+  # A game gets a "final" update when its moneyline moves at least this much (probability points)
+  ml_change: 0.02

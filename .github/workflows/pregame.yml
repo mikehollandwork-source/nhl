@@ -1,0 +1,45 @@
+name: pregame
+
+on:
+  schedule:
+    - cron: "11 22 * * *"   # ~1 hr before 7 PM ET puck drops
+    - cron: "23 1 * * *"    # before 10 PM ET West Coast games
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Slate date YYYY-MM-DD (blank = today, US/Eastern)"
+        required: false
+      dry_run:
+        description: "Print messages instead of posting to Discord"
+        type: boolean
+        default: false
+
+concurrency:
+  group: data-branch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NHL_DATA_DIR: ${{ github.workspace }}/data
+      NHL_DATE: ${{ inputs.date }}
+      NHL_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Goalie re-check and line snapshot
+        run: python -m nhlmodel.pipelines.daily --run pregame
+      - uses: ./.github/actions/save-data
+        if: ${{ !cancelled() }}
+        with:
+          message: "pregame ${{ github.run_id }}"
+      - uses: ./.github/actions/notify-failure
+        if: ${{ failure() }}
