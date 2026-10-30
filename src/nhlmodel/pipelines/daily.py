@@ -26,7 +26,7 @@ from nhlmodel.features.xg import XGModel
 from nhlmodel.ingest import dailyfaceoff as DF
 from nhlmodel.ingest import exchanges, kalshi, nhl_api
 from nhlmodel.market.devig import cents_to_american, prob_to_american
-from nhlmodel.pipelines import slate_v2
+from nhlmodel.pipelines import once, slate_v2
 from nhlmodel.pipelines.backfill import backfill_season
 from nhlmodel.publish import format as F
 from nhlmodel.publish import notify as PUB
@@ -415,7 +415,9 @@ def line_rows(r: GameRun, cons: pd.DataFrame) -> list[dict]:
 
 # ----------------------------------------------------------------------------- runs
 
-def morning(d: date) -> None:
+def morning(d: date, force: bool = False) -> None:
+    if once.already_done(f"morning_{d.isoformat()}", force):
+        return
     backfill_season(season_for(d))  # make sure last night's games are in
     runs, gm, h = project_slate(d, "morning")
     if not runs:
@@ -468,6 +470,7 @@ def morning(d: date) -> None:
     PUB.send_message(F.market_props_message(shown, top_n, settings().get("lines", {}).get("prop_flag_edge", 0.04)))
     PUB.send_document(csv_path, caption=f"All projections {d.isoformat()} (games + every player prop line, "
                                         f"with the Polymarket/Kalshi buy price where there is one)")
+    once.mark_done(f"morning_{d.isoformat()}")
 
 
 def pregame(d: date) -> None:
@@ -570,12 +573,13 @@ def _goalie_changed(prev: pd.DataFrame, r: GameRun) -> bool:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", choices=["morning", "pregame"], required=True)
+    ap.add_argument("--force", action="store_true", help="post again even if today's morning post already went out")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     d = today_local()
     log.info("slate date %s (%s)", d, tz())
-    morning(d) if a.run == "morning" else pregame(d)
+    morning(d, a.force) if a.run == "morning" else pregame(d)
 
 
 if __name__ == "__main__":

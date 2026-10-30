@@ -23,6 +23,11 @@ This is a personal projection and tracking tool, **not a sportsbook**.
 Every job can also be run by hand from the Actions tab (`Run workflow`), optionally for another
 date or in dry-run mode (prints instead of posting).
 
+**Timing:** GitHub's own schedule can start jobs hours late, so the jobs are also started by an external
+timer (cron-job.org calling GitHub's "run workflow" API). The morning, nightly and weekly jobs post
+only once per day/week no matter how many times they are started (marker files in `data/runs/`);
+tick `force` when running by hand to post again.
+
 ## How the model works
 
 1. **Data**: free NHL API (play-by-play, box scores, schedule). Starting goalies from DailyFaceoff
