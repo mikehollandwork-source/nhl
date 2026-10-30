@@ -6,18 +6,20 @@ python -m nhlmodel.pipelines.nightly
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from datetime import timedelta
 
 import numpy as np
 import pandas as pd
 
-from nhlmodel.config import out_dir, season_for, settings, today_local
+from nhlmodel.config import data_dir, out_dir, season_for, settings, today_local
 from nhlmodel.pipelines.backfill import backfill_season, refresh_extras
 from nhlmodel.publish import format as F
 from nhlmodel.publish import notify as PUB
 from nhlmodel.store import db
 from nhlmodel.tracking import grade as GR
+from nhlmodel.tracking import report as RP
 
 log = logging.getLogger("nightly")
 
@@ -79,6 +81,20 @@ def props_recap(season: int, day) -> str | None:
                          block("Season to date", GR.summarize_props(g))])
 
 
+def system_report(season: int, day, res: pd.DataFrame, graded: pd.DataFrame) -> None:
+    """Strengths, weaknesses and trends across everything graded so far this season."""
+    pg = db.read("player_games", partitions=[str(season)])
+    rep = RP.build(day, db.read("projections"), res, graded, db.read("prop_lines"), pg,
+                   settings().get("lines", {}).get("prop_flag_edge", 0.04))
+    if rep["games"] == 0 and rep["prop_lines"] == 0:
+        log.info("system report: nothing graded yet")
+        return
+    PUB.send_message(F.system_report_message(rep))
+    path = data_dir() / "reports" / f"system_report_{day.isoformat()}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(rep, indent=1, default=float))
+
+
 def run() -> None:
     today = today_local()
     yesterday = today - timedelta(days=1)
@@ -95,13 +111,15 @@ def run() -> None:
         PUB.send_message(pm)
 
     dis = db.read("disagreements")
-    if dis.empty:
-        log.info("no disagreements logged yet")
-        return
-    dis = dis[dis.run_type == "morning"]  # grade the opening-line comparison; pregame rows are context
     res = results_frame(season)
-    cons = db.read("consensus")
-    graded = GR.grade(dis, res, cons)
+    graded = pd.DataFrame()
+    if not dis.empty:
+        dis = dis[dis.run_type == "morning"]  # grade the opening-line comparison; pregame rows are context
+        graded = GR.grade(dis, res, db.read("consensus"))
+    try:
+        system_report(season, yesterday, res, graded)
+    except Exception:
+        log.exception("system report failed")
     if graded.empty:
         log.info("nothing to grade yet")
         return

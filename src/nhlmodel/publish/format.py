@@ -154,3 +154,23 @@ def recap_message(date_str: str, day: dict, season: dict, by_market: pd.DataFram
         if df is not None and not df.empty:
             parts.append(f"<b>{title}</b> (flagged)<pre>" + df.to_string(index=False, float_format=lambda x: f"{x:.2f}") + "</pre>")
     return "\n\n".join(parts)
+
+
+def system_report_message(rep: dict) -> str:
+    """Nightly system report: proven strengths, proven weaknesses, early leanings and trends."""
+    def bullets(items, n):
+        return [f"• {escape(i['text'])}" for i in items[:n]]
+
+    out = [f"🧭 <b>System report</b> · through {rep['date']} · {rep['games']} games, {rep['prop_lines']} prop lines graded"]
+    if rep["strengths"]:
+        out += ["", "💪 <b>Strengths</b>", *bullets(rep["strengths"], 4)]
+    if rep["weaknesses"]:
+        out += ["", "⚠️ <b>Weaknesses</b>", *bullets(rep["weaknesses"], 4)]
+    if not rep["strengths"] and not rep["weaknesses"]:
+        out += ["", "No proven strengths or weaknesses yet. Verdicts need about 100 games "
+                    "(or 300 prop lines) and a clear margin; until then these are leanings only."]
+    if rep["leaning"]:
+        out += ["", "🔎 <b>Leaning (not proven yet)</b>", *bullets(rep["leaning"], 8)]
+    if rep["trends"]:
+        out += ["", "📈 <b>Trends</b>", *bullets(rep["trends"], 5)]
+    return "\n".join(out)
