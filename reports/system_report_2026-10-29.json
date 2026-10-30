@@ -1,0 +1,102 @@
+{
+ "date": "2026-10-29",
+ "games": 11,
+ "prop_lines": 1276,
+ "strengths": [],
+ "weaknesses": [],
+ "leaning": [
+  {
+   "label": "Moneyline prices",
+   "verdict": "leaning",
+   "text": "Moneyline: model worse than the market's no-vig price (log-loss gap +0.0198 per game, 11 games)",
+   "n": 11,
+   "value": 0.01977817949685194
+  },
+  {
+   "label": "Totals prices",
+   "verdict": "leaning",
+   "text": "Totals: model worse than the market's no-vig price (log-loss gap +0.0029 per game, 11 games)",
+   "n": 11,
+   "value": 0.0029467961700298624
+  },
+  {
+   "label": "Puck line prices",
+   "verdict": "leaning",
+   "text": "Puck line: model better than the market's no-vig price (log-loss gap -0.0053 per game, 11 games)",
+   "n": 11,
+   "value": -0.005265692130192235
+  },
+  {
+   "label": "Scoring bias",
+   "verdict": "leaning",
+   "text": "Total goals: projections run low by 1.25 goals per game (11 games)",
+   "n": 11,
+   "value": -1.2494599999999998
+  },
+  {
+   "label": "Flagged puck line",
+   "verdict": "leaning",
+   "text": "Flagged puck line picks: 3-7, -1.8u (-18% ROI, 10 picks)",
+   "n": 10,
+   "value": -0.18118367346938774
+  },
+  {
+   "label": "Flagged totals",
+   "verdict": "leaning",
+   "text": "Flagged totals picks: 9-12, -0.9u (-4% ROI, 21 picks)",
+   "n": 21,
+   "value": -0.0426008890516398
+  },
+  {
+   "label": "assists props",
+   "verdict": "leaning",
+   "text": "Assists props: model worse than Kalshi (log-loss gap +0.0008, 322 lines)",
+   "n": 322,
+   "value": 0.0007736588237170231
+  },
+  {
+   "label": "goals props",
+   "verdict": "leaning",
+   "text": "Goals props: model better than Kalshi (log-loss gap -0.0002, 508 lines)",
+   "n": 508,
+   "value": -0.0002437757959823637
+  },
+  {
+   "label": "points props",
+   "verdict": "leaning",
+   "text": "Points props: model worse than Kalshi (log-loss gap +0.0007, 446 lines)",
+   "n": 446,
+   "value": 0.0007387348137365971
+  },
+  {
+   "label": "Posted props",
+   "verdict": "leaning",
+   "text": "Posted props: 16 of 46 won (model expected 15.4, Kalshi 12.9), +9.0u",
+   "n": 46,
+   "value": 0.1955892676442657
+  },
+  {
+   "label": "Stars props",
+   "verdict": "leaning",
+   "text": "Stars' point props: we under-predict by 18 pts (57% vs 75% actual, 40 lines)",
+   "n": 40,
+   "value": -0.17894600000000005
+  },
+  {
+   "label": "Depth players props",
+   "verdict": "leaning",
+   "text": "Depth players' point props: we under-predict by 4 pts (43% vs 48% actual, 151 lines)",
+   "n": 151,
+   "value": -0.041981854304635746
+  }
+ ],
+ "trends": [
+  {
+   "label": "Props trend",
+   "verdict": "trend",
+   "text": "Posted props, last 7 days: hot, +9.0u (+20% ROI)",
+   "n": 46,
+   "value": 0.1955892676442657
+  }
+ ]
+}
