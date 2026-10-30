@@ -10,7 +10,7 @@ import logging
 
 from nhlmodel.config import data_dir, season_for, today_local
 from nhlmodel.market import tells
-from nhlmodel.pipelines import train, train_v2
+from nhlmodel.pipelines import once, train, train_v2
 from nhlmodel.pipelines.backfill import backfill_edge
 from nhlmodel.pipelines.nightly import results_frame
 from nhlmodel.publish import notify as PUB
@@ -19,7 +19,16 @@ from nhlmodel.store import db
 log = logging.getLogger("weekly")
 
 
-def run() -> None:
+def run(force: bool = False) -> None:
+    y, w, _ = today_local().isocalendar()
+    key = f"weekly_{y}-W{w:02d}"
+    if once.already_done(key, force):
+        return
+    _run()
+    once.mark_done(key)
+
+
+def _run() -> None:
     backfill_edge([season_for(today_local())])
     res = train.run("production")
     v2 = train_v2.run()
@@ -52,9 +61,13 @@ def run() -> None:
 
 
 def main() -> None:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--force", action="store_true", help="run again even if this week's retrain already ran")
+    a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    run()
+    run(a.force)
 
 
 if __name__ == "__main__":

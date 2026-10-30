@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from nhlmodel.config import data_dir, out_dir, season_for, settings, today_local
+from nhlmodel.pipelines import once
 from nhlmodel.pipelines.backfill import backfill_season, refresh_extras
 from nhlmodel.publish import format as F
 from nhlmodel.publish import notify as PUB
@@ -95,14 +96,21 @@ def system_report(season: int, day, res: pd.DataFrame, graded: pd.DataFrame) -> 
     path.write_text(json.dumps(rep, indent=1, default=float))
 
 
-def run() -> None:
+def run(force: bool = False) -> None:
     today = today_local()
     yesterday = today - timedelta(days=1)
     season = season_for(yesterday)
     added = backfill_season(season)
     log.info("ingested %d new games", added)
     refresh_extras(season)
+    key = f"nightly_{yesterday.isoformat()}"
+    if once.already_done(key, force):
+        return
+    _post(season, yesterday)
+    once.mark_done(key)
 
+
+def _post(season: int, yesterday) -> None:
     acc = model_accuracy(season, yesterday)
     if acc:
         PUB.send_message(acc)
@@ -135,10 +143,12 @@ def run() -> None:
 
 
 def main() -> None:
-    argparse.ArgumentParser().parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--force", action="store_true", help="post again even if last night's recap already went out")
+    a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    run()
+    run(a.force)
 
 
 if __name__ == "__main__":

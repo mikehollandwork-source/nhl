@@ -12,6 +12,10 @@ on:
         description: "Print messages instead of posting to Discord"
         type: boolean
         default: false
+      force:
+        description: "Post again even if this run's post already went out"
+        type: boolean
+        default: false
 
 concurrency:
   group: data-branch
@@ -35,7 +39,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Retrain and reverse-engineering report
-        run: python -m nhlmodel.pipelines.weekly
+        run: python -m nhlmodel.pipelines.weekly ${{ inputs.force && '--force' || '' }}
       - uses: ./.github/actions/save-data
         if: ${{ !cancelled() }}
         with:
