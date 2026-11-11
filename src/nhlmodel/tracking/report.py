@@ -151,10 +151,23 @@ def favourite_calibration(m: pd.DataFrame) -> list[dict]:
     return out
 
 
+def main_lines(g: pd.DataFrame) -> pd.DataFrame:
+    """One line per game per market: the totals / puck line whose market price is closest to 50/50.
+    Counting every line of a ladder (under 4.5, 5.5, 6.5 ...) as separate picks repeats the same opinion
+    several times and overstates a record, so flagged records use the main line only."""
+    if g.empty or "book_prob" not in g:
+        return g
+    x = g.assign(_l=g.line.astype(float).abs().fillna(0.0), _d=(g.book_prob - 0.5).abs())
+    key = ["game_date", "home", "away", "market"]
+    best = x.sort_values("_d").drop_duplicates(key)[[*key, "_l"]]
+    return x.merge(best, on=[*key, "_l"]).drop(columns=["_l", "_d"])
+
+
 def flagged_findings(graded: pd.DataFrame) -> list[dict]:
     if graded is None or graded.empty:
         return []
-    g = graded[graded.outcome.notna() & graded.flagged]
+    g = main_lines(graded[graded.outcome.notna()])
+    g = g[g.flagged]
     if g.empty:
         return []
     out = []

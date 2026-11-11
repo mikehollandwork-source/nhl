@@ -27,7 +27,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     env:
       NHL_DATA_DIR: ${{ github.workspace }}/data
       NHL_DATE: ${{ inputs.date }}

@@ -46,9 +46,15 @@ def _sim_one(args) -> dict:
     rng = np.random.default_rng(1000 + gid % 1_000_000)  # common random numbers across variants
     s = simulate(gi, consts, n=n_sims, step=step, rng=rng)
     tot = s.final_h + s.final_a
-    return {"game_id": gid, "p_home": float(s.home_win.mean()), "p_o55": float((tot > 5.5).mean()),
-            "p_o65": float((tot > 6.5).mean()), "exp_total": float(tot.mean()), "p_tie": float(s.went_ot.mean()),
-            "pp_per_game": float((s.pp_count_h + s.pp_count_a).mean()) if s.pp_count_h is not None else np.nan}
+    margin = s.final_h - s.final_a
+    out = {"game_id": gid, "p_home": float(s.home_win.mean()), "p_o55": float((tot > 5.5).mean()),
+           "p_o65": float((tot > 6.5).mean()), "exp_total": float(tot.mean()), "p_tie": float(s.went_ot.mean()),
+           "pp_per_game": float((s.pp_count_h + s.pp_count_a).mean()) if s.pp_count_h is not None else np.nan,
+           # extra lines for the strategy backtest (pipelines/strategy_backtest.py)
+           "p_home_m15": float((margin > 1.5).mean()), "p_away_m15": float((margin < -1.5).mean())}
+    for ln in (4.5, 7.5, 8.5):
+        out[f"p_o{int(ln * 10)}"] = float((tot > ln).mean())
+    return out
 
 
 def sim_preds(inputs: dict[int, object], consts, n_sims: int, step: int) -> pd.DataFrame:
