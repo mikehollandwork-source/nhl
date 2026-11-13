@@ -191,6 +191,34 @@ They stay in the data store and are re-tested monthly by the `ablation` job.
   only if something material changed.
 - The nightly recap adds moneyline accuracy that needs no odds.
 
+## Betting-rule backtest (`pipelines/strategy_backtest.py`)
+
+Can the model's strengths and weaknesses be turned into money? Tested on real pre-game buy prices:
+Polymarket for 2025-26 (1,242 of 1,312 games) and Polymarket + Kalshi for 2026-27, against the model's
+out-of-sample predictions. One bet per game per market (moneyline, the totals line nearest 50/50, the
+1.5 puck line), 1 unit each. Rules: **follow** the model, **fade** it, follow a **corrected** model
+(recalibrated on earlier games only), or a learned **blend** of model and market; edge thresholds 3, 5
+and 8 points. Rules are chosen on 2025-26 and tested once on 2026-27; a rule passes only with a test ROI
+whose 90% interval (bootstrap by game day) is above zero and at least 150 bets.
+
+**Result (Nov 2026): no rule passed.** At a 5-point edge:
+
+| Rule | 2025-26 bets | 2025-26 ROI (90% range) | 2026-27 bets | 2026-27 ROI (90% range) |
+|---|---|---|---|---|
+| Follow moneyline | 318 | +7.9% (-5 to +20) | 75 | -3.6% (-24 to +20) |
+| Fade totals (bet the over when the model says under) | 300 | +8.0% (-2 to +17) | 117 | -5.2% (-18 to +9) |
+| Follow puck line | 196 | -0.1% (-14 to +15) | 63 | -23.3% (-46 to +1) |
+| Corrected moneyline | 262 | +10.7% (-2 to +23) | 67 | +7.0% (-14 to +32) |
+
+- The totals fade looked good last season and reversed this season, so it is not a reliable edge.
+- Posted props are flat: 464 bets, ROI -0.9% (first half +12.6%, second half -17.2%).
+- The live record "unders 30-94" counted every line of a ladder as a separate pick; on main lines only
+  the model's unders are about break-even this season. The nightly report now counts main lines only.
+- The predictions used the real starter and lineup, a mild optimism, so true results would be no better.
+
+The weekly job re-runs this with fresh prices and posts the table. The morning post says whether any
+rule has passed; until one does, flagged lines are information, not plays.
+
 ## Disagreement tracking
 
 For every game line the books offer (moneyline, puck line, total):

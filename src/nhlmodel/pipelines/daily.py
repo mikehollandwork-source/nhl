@@ -445,6 +445,10 @@ def morning(d: date, force: bool = False) -> None:
     if posted:
         if skipped:
             note += f"\nNot posted (no Polymarket/Kalshi line yet): {', '.join(skipped)}"
+        sb = data_dir() / "models" / "strategy_backtest.json"
+        plays = F.plays_note(json.loads(sb.read_text()) if sb.exists() else None)
+        if plays:
+            note += "\n" + plays
         PUB.send_message(F.morning_message(d.strftime("%a %b %-d"), gm.version, cards, note))
     else:
         PUB.send_message(f"🏒 <b>NHL · {d.strftime('%a %b %-d')}</b>\nNo Polymarket or Kalshi lines yet, so no game "

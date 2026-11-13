@@ -95,7 +95,10 @@ def parse_events(events: list[dict], d: date, slate: list[tuple[str, str]], nick
                          {"home": pair[0], "away": pair[1], "market": "h2h", "selection": side[1], "line": None,
                           "prob": 1 - p, **flip}]
             elif kind == "spreads" and m.get("line") is not None:
-                ln = float(m["line"])          # first outcome's handicap (negative = favourite)
+                # first outcome's handicap; read from the text when present ("Spread: Oilers (-1.5)"),
+                # because the `line` field has carried the wrong sign in the past
+                hc = re.search(r"\(([-+]?\d+(?:\.\d+)?)\)", m.get("question") or "")
+                ln = float(hc.group(1)) if hc else float(m["line"])
                 rows += [{"home": pair[0], "away": pair[1], "market": "spreads", "selection": side[0], "line": ln,
                           "prob": p, **base},
                          {"home": pair[0], "away": pair[1], "market": "spreads", "selection": side[1], "line": -ln,

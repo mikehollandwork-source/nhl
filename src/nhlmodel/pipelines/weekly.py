@@ -13,6 +13,7 @@ from nhlmodel.market import tells
 from nhlmodel.pipelines import once, train, train_v2
 from nhlmodel.pipelines.backfill import backfill_edge
 from nhlmodel.pipelines.nightly import results_frame
+from nhlmodel.publish import format as F
 from nhlmodel.publish import notify as PUB
 from nhlmodel.store import db
 
@@ -25,6 +26,7 @@ def run(force: bool = False) -> None:
     if once.already_done(key, force):
         return
     _run()
+    strategy()
     once.mark_done(key)
 
 
@@ -58,6 +60,16 @@ def _run() -> None:
         return
     results = results_frame(season_for(today_local()))
     PUB.send_message(tells.report(odds, cons, db.read("projections"), db.read("slates"), results))
+
+
+def strategy() -> None:
+    """Re-run the betting-rule backtest with fresh prices and predictions, and post the summary."""
+    from nhlmodel.pipelines import strategy_backtest as SB
+    try:
+        rep = SB.run(2000, refresh_prices=True, refresh_preds=True)
+        PUB.send_message(F.strategy_message(rep))
+    except Exception:
+        log.exception("strategy backtest failed")
 
 
 def main() -> None:

@@ -174,3 +174,39 @@ def system_report_message(rep: dict) -> str:
     if rep["trends"]:
         out += ["", "📈 <b>Trends</b>", *bullets(rep["trends"], 5)]
     return "\n".join(out)
+
+
+def strategy_message(rep: dict) -> str:
+    """Weekly betting-rule backtest: which rules (follow / fade / corrected / blend) made money at real
+    buy prices, chosen on last season and tested on this one."""
+    def line(k, v):
+        return (f"{k:<22}{v['n']:>5}{100 * v['win_rate']:>5.0f}%{100 * v['roi']:>+7.1f}%"
+                f"  [{100 * v['lo90']:+.0f}, {100 * v['hi90']:+.0f}]")
+
+    passed = [k for k, v in rep.get("test_verdict", {}).items() if v == "pass"]
+    head = ("✅ <b>Rules that passed:</b> " + ", ".join(passed)) if passed else \
+        "No betting rule has passed. Flagged lines (*) are information, not plays."
+    out = [f"🧪 <b>Betting-rule backtest</b> (1 unit at the real buy price; chosen on {rep['selection_season']}, "
+           f"tested on {rep['test_season']})", head]
+    for title, key in (("Last season", "selection"), ("This season (test)", "test")):
+        rows = {k: v for k, v in rep[key].items() if v["n"] >= 60 and k.split()[1] == "5"
+                and not k.endswith(("-over", "-under"))}
+        if rows:
+            out.append(f"<b>{title}</b> — rules at a 5-point edge<pre>")
+            out.append(f"{'rule':<22}{'bets':>5}{'win':>6}{'ROI':>8}  90% range")
+            out += [line(k.replace(" 5 ", " "), v) for k, v in rows.items()]
+            out.append("</pre>")
+    pp = rep.get("props_posted", {}).get("all")
+    if pp and pp.get("n"):
+        out.append(f"Posted props to date: {pp['n']} bets, ROI {100 * pp['roi']:+.1f}% "
+                   f"(90% range {100 * pp['lo90']:+.0f} to {100 * pp['hi90']:+.0f})")
+    return "\n".join(out)
+
+
+def plays_note(rep: dict | None) -> str:
+    if not rep:
+        return ""
+    passed = [k for k, v in rep.get("test_verdict", {}).items() if v == "pass"]
+    if passed:
+        return "✅ Proven rules: " + ", ".join(passed)
+    return "No proven plays: no betting rule has passed the backtest, so * marks are information only."
