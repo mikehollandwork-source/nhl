@@ -1,0 +1,146 @@
+{
+ "date": "2026-11-12",
+ "games": 107,
+ "prop_lines": 12027,
+ "strengths": [
+  {
+   "label": "Depth players props",
+   "verdict": "strength",
+   "text": "Depth players' point props are well calibrated (1364 lines)",
+   "n": 1364,
+   "value": -0.008854618768328493
+  }
+ ],
+ "weaknesses": [
+  {
+   "label": "Flagged puck line",
+   "verdict": "weakness",
+   "text": "Flagged puck line picks: 30-71, -32.1u (-32% ROI, 101 picks)",
+   "n": 101,
+   "value": -0.31766624260248955
+  },
+  {
+   "label": "assists props",
+   "verdict": "weakness",
+   "text": "Assists props: model worse than Kalshi (log-loss gap +0.0131, 3058 lines)",
+   "n": 3058,
+   "value": 0.013097857500439925
+  },
+  {
+   "label": "points props",
+   "verdict": "weakness",
+   "text": "Points props: model worse than Kalshi (log-loss gap +0.0087, 4241 lines)",
+   "n": 4241,
+   "value": 0.008677489709315016
+  },
+  {
+   "label": "Stars props",
+   "verdict": "weakness",
+   "text": "Stars' point props: we under-predict by 9 pts (57% vs 66% actual, 484 lines)",
+   "n": 484,
+   "value": -0.08870706611570245
+  }
+ ],
+ "leaning": [
+  {
+   "label": "Moneyline prices",
+   "verdict": "leaning",
+   "text": "Moneyline: model worse than the market's no-vig price (log-loss gap +0.0236 per game, 98 games)",
+   "n": 98,
+   "value": 0.0236169801141551
+  },
+  {
+   "label": "Totals prices",
+   "verdict": "leaning",
+   "text": "Totals: model worse than the market's no-vig price (log-loss gap +0.0022 per game, 98 games)",
+   "n": 98,
+   "value": 0.0022075977675429163
+  },
+  {
+   "label": "Puck line prices",
+   "verdict": "leaning",
+   "text": "Puck line: model worse than the market's no-vig price (log-loss gap +0.0058 per game, 98 games)",
+   "n": 98,
+   "value": 0.0058150697131727465
+  },
+  {
+   "label": "Scoring bias",
+   "verdict": "leaning",
+   "text": "Total goals: projections run low by 0.31 goals per game (107 games)",
+   "n": 107,
+   "value": -0.31247439252336445
+  },
+  {
+   "label": "Favourite calibration",
+   "verdict": "leaning",
+   "text": "Favourites at 55-60%: we say 57%, they win 61% \u2014 too timid (they win more than we say) (31 games)",
+   "n": 31,
+   "value": 0.0444870967741936
+  },
+  {
+   "label": "Flagged moneyline",
+   "verdict": "leaning",
+   "text": "Flagged moneyline picks: 11-37, -21.8u (-45% ROI, 48 picks)",
+   "n": 48,
+   "value": -0.4540740740740741
+  },
+  {
+   "label": "Flagged totals",
+   "verdict": "leaning",
+   "text": "Flagged totals picks: 57-77, -2.9u (-2% ROI, 134 picks)",
+   "n": 134,
+   "value": -0.021676315798154086
+  },
+  {
+   "label": "goals props",
+   "verdict": "leaning",
+   "text": "Goals props: model worse than Kalshi (log-loss gap +0.0018, 4728 lines)",
+   "n": 4728,
+   "value": 0.0018235462281689981
+  },
+  {
+   "label": "Posted props",
+   "verdict": "leaning",
+   "text": "Posted props: 161 of 599 won (model expected 180.3, Kalshi 157.1), +37.3u",
+   "n": 599,
+   "value": 0.062288869703244994
+  }
+ ],
+ "trends": [
+  {
+   "label": "ML trend",
+   "verdict": "trend",
+   "text": "Moneyline vs market, last 7 days: steady (gap +0.0323 vs +0.0165 before, 44 games)",
+   "n": 44,
+   "value": 0.015809444390724115
+  },
+  {
+   "label": "Props trend",
+   "verdict": "trend",
+   "text": "Posted props, last 7 days: hot, +20.0u (+7% ROI vs +5% ROI before)",
+   "n": 274,
+   "value": 0.07311082991887366
+  },
+  {
+   "label": "Team ANA",
+   "verdict": "trend",
+   "text": "ANA: we under-project their scoring by 1.7 goals per game (7 games)",
+   "n": 7,
+   "value": -1.6685599999999998
+  },
+  {
+   "label": "Team WPG",
+   "verdict": "trend",
+   "text": "WPG: we under-project their scoring by 1.3 goals per game (8 games)",
+   "n": 8,
+   "value": -1.296885
+  },
+  {
+   "label": "Team CAR",
+   "verdict": "trend",
+   "text": "CAR: we under-project their scoring by 1.2 goals per game (6 games)",
+   "n": 6,
+   "value": -1.199183333333333
+  }
+ ]
+}
